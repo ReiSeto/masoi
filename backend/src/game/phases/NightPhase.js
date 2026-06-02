@@ -90,16 +90,46 @@ async function resolveNight(gameState, lobbyRules = {}) {
   // ============================================================
   if (state.round === 1) {
     for (const [playerId, action] of Object.entries(actions)) {
-      if (action.actionType === 'cupid_link' && action.targetId && action.target2Id) {
-        const cupid = players[playerId];
-        if (cupid?.roleSlug === 'cupid' && !cupid.roleData?.linked) {
-          results.lovers.push({
-            player1Id: action.targetId,
-            player2Id: action.target2Id,
-          });
-          await gameState.updatePlayer(playerId, {
-            roleData: { ...cupid.roleData, linked: true, lovers: [action.targetId, action.target2Id] }
-          });
+      if (action.actionType === 'cupid_link' && action.targetId) {
+        let t1, t2;
+        if (typeof action.targetId === 'string' && action.targetId.includes(',')) {
+          const parts = action.targetId.split(',');
+          t1 = parts[0];
+          t2 = parts[1];
+        } else if (action.target2Id) {
+          t1 = action.targetId;
+          t2 = action.target2Id;
+        } else if (Array.isArray(action.targetId) && action.targetId.length >= 2) {
+          t1 = action.targetId[0];
+          t2 = action.targetId[1];
+        }
+
+        if (t1 && t2) {
+          const cupid = players[playerId];
+          if (cupid?.roleSlug === 'cupid' && !cupid.roleData?.linked) {
+            results.lovers.push({
+              player1Id: t1,
+              player2Id: t2,
+            });
+            await gameState.updatePlayer(playerId, {
+              roleData: { ...cupid.roleData, linked: true, lovers: [t1, t2] }
+            });
+            // Reveal roles to each other
+            const target1 = players[t1];
+            const target2 = players[t2];
+            if (target1 && target2) {
+              results.events.push({
+                type: 'system',
+                playerId: t1,
+                message: `💘 Thần Tình Yêu đã ghép đôi bạn với ${target2.username}. Họ là: ${target2.roleSlug}. Hãy bảo vệ nhau đến cùng!`,
+              });
+              results.events.push({
+                type: 'system',
+                playerId: t2,
+                message: `💘 Thần Tình Yêu đã ghép đôi bạn với ${target1.username}. Họ là: ${target1.roleSlug}. Hãy bảo vệ nhau đến cùng!`,
+              });
+            }
+          }
         }
       }
     }
@@ -304,7 +334,8 @@ async function resolveNight(gameState, lobbyRules = {}) {
   // 10. XỬ LÝ VỆ SĨ (bodyguard_protect)
   // ============================================================
   let bodyguardProtectTarget = null;
-  let bodyguardId = null;
+  let bodyguardId = Object.keys(players).find(pid => players[pid]?.roleSlug === 'bodyguard');
+  
   for (const [playerId, action] of Object.entries(actions)) {
     if (playerId?.toString() === jailedPlayerId?.toString()) continue;
     if (action.actionType === 'bodyguard_protect' && action.targetId) {
@@ -429,7 +460,20 @@ async function resolveNight(gameState, lobbyRules = {}) {
         });
         wolfTarget = null; // Chặn cuộc tấn công
       } else {
-        // Vệ sĩ đã bị thương từ trước -> không thể bảo vệ thành công nữa -> Mục tiêu chết
+        // Vệ sĩ đã bị thương từ trước -> không thể bảo vệ thành công nữa -> Vệ sĩ chết, Mục tiêu an toàn
+        results.deaths.push({
+          playerId: bodyguardId,
+          username: bg.username,
+          cause: 'bodyguard_protect',
+          killedBy: 'werewolf',
+          roleSlug: bg.roleSlug,
+        });
+        results.saves.push({
+          playerId: wolfTarget,
+          username: targetPlayer.username,
+          savedBy: 'bodyguard',
+        });
+        wolfTarget = null;
       }
     }
 
@@ -452,7 +496,20 @@ async function resolveNight(gameState, lobbyRules = {}) {
         });
         skTarget = null; // Chặn cuộc tấn công
       } else {
-        // Vệ sĩ đã bị thương từ trước -> không thể bảo vệ thành công nữa -> Mục tiêu chết
+        // Vệ sĩ đã bị thương từ trước -> không thể bảo vệ thành công nữa -> Vệ sĩ chết, Mục tiêu an toàn
+        results.deaths.push({
+          playerId: bodyguardId,
+          username: bg.username,
+          cause: 'bodyguard_protect',
+          killedBy: 'serial_killer',
+          roleSlug: bg.roleSlug,
+        });
+        results.saves.push({
+          playerId: skTarget,
+          username: targetPlayer.username,
+          savedBy: 'bodyguard',
+        });
+        skTarget = null;
       }
     }
   }

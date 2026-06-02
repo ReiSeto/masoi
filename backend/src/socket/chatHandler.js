@@ -24,25 +24,27 @@ function chatHandler(io, socket) {
       const allowedChannels = ['public', 'wolf', 'dead', 'jail'];
       if (!allowedChannels.includes(channel)) return;
 
+      const { getActiveGame } = require('../game/GameEngine');
+      const game = getActiveGame(gameId);
+      if (!game) return;
+
+      const state = await game.gameState.get();
+      const p = await game.gameState.getPlayer(userId);
+      const players = await game.gameState.getAllPlayers();
+
       // Xử lý kênh chat giam ngục riêng tư giữa Cai Ngục và mục tiêu
       if (channel === 'jail') {
-        const { getActiveGame } = require('../game/GameEngine');
-        const game = getActiveGame(gameId);
-        if (!game) return;
-
-        const state = await game.gameState.get();
         if (state.phase !== 'night') {
           return socket.emit('error', { message: 'Kênh chat giam ngục chỉ hoạt động vào ban đêm.' });
         }
 
-        const players = await game.gameState.getAllPlayers();
         let jailerId = null;
         let jailedPlayerId = null;
 
-        for (const [pid, p] of Object.entries(players)) {
-          if (p.roleSlug === 'jailer' && p.isAlive) {
+        for (const [pid, player] of Object.entries(players)) {
+          if (player.roleSlug === 'jailer' && player.isAlive) {
             jailerId = pid;
-            jailedPlayerId = p.roleData?.nextJailed || null;
+            jailedPlayerId = player.roleData?.nextJailed || null;
             break;
           }
         }
@@ -95,6 +97,37 @@ function chatHandler(io, socket) {
         }
 
         return; // Không lưu vào DB
+      }
+
+      // Xử lý kênh chat âm hồn (người chết và ngoại cảm)
+      if (channel === 'dead') {
+        if (p.isAlive && (p.roleSlug !== 'medium' || state.phase !== 'night')) {
+          return socket.emit('error', { message: 'Bạn không có quyền chat ở kênh này.' });
+        }
+
+        const message = await GameMessage.create({
+          game_id: gameId,
+          sender_id: null,
+          channel,
+          content: cleanContent,
+          is_system: false,
+        });
+
+        for (const [pid, player] of Object.entries(players)) {
+          if (!player.isAlive || (player.roleSlug === 'medium' && player.isAlive)) {
+            const targetSocket = game.players.find(gp => gp.userId?.toString() === pid?.toString())?.socket_id;
+            if (targetSocket) {
+              io.to(targetSocket).emit('chat:message', {
+                id: message.id,
+                sender: { userId, username },
+                channel,
+                content: cleanContent,
+                timestamp: message.created_at,
+              });
+            }
+          }
+        }
+        return;
       }
 
       // Lưu vào DB

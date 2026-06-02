@@ -281,7 +281,8 @@ class GameEngine {
       case 'bodyguard':
         actionType = 'bodyguard_protect';
         actionLabel = 'Chọn người để bảo vệ';
-        targets = alivePlayers.filter(p => p.userId !== playerId);
+        const lastProtected = data.roleData?.lastProtected;
+        targets = alivePlayers.filter(p => p.userId !== playerId && p.userId !== lastProtected);
         break;
       case 'detective':
         actionType = 'detective_investigate';
@@ -334,7 +335,7 @@ class GameEngine {
         if (state.round !== 1 || data.roleData?.linked) return;
         actionType = 'cupid_link';
         actionLabel = '💘 Chọn 2 người để ghép đôi yêu nhau';
-        targets = alivePlayers.filter(p => p.userId !== playerId);
+        targets = alivePlayers;
         break;
       }
       default:
@@ -462,7 +463,8 @@ class GameEngine {
       roleData: { 
         ...gunner.roleData, 
         bullets: gunner.roleData.bullets - 1,
-        lastShotRound: state.round
+        lastShotRound: state.round,
+        revealed: true
       }
     });
     await this.gameState.updatePlayer(targetId, { isAlive: false, deathRound: state.round, deathCause: 'gunner_shot' });
@@ -733,6 +735,35 @@ class GameEngine {
 
     // Sói thắng: số sói >= số còn lại (không tính solo killers)
     const aliveSoloKillers = aliveSolo.filter(([, p]) => ['serial_killer', 'arsonist'].includes(p.roleSlug));
+
+    // THÊM: Cupid / Lovers win condition (nếu chỉ còn lại 2 người yêu nhau, hoặc 2 người yêu nhau + Cupid)
+    let loversWin = false;
+    let loversNames = [];
+    for (const [pid, p] of Object.entries(players)) {
+      if (p.roleSlug === 'cupid' && p.roleData?.lovers?.length === 2) {
+        const [l1, l2] = p.roleData.lovers;
+        const l1Alive = players[l1]?.isAlive;
+        const l2Alive = players[l2]?.isAlive;
+        if (l1Alive && l2Alive) {
+          const aliveIds = alive.map(([id]) => id);
+          const others = aliveIds.filter(id => id !== l1 && id !== l2 && id !== pid);
+          if (others.length === 0) {
+            loversWin = true;
+            loversNames = [players[l1]?.username, players[l2]?.username];
+            break;
+          }
+        }
+      }
+    }
+
+    if (loversWin) {
+      return {
+        winningTeam: 'solo',
+        winnerRoleSlug: 'cupid',
+        reason: `💘 Tình yêu chiến thắng! Cặp đôi ${loversNames.join(' và ')} đã sống sót đến cuối cùng!`,
+      };
+    }
+
     if (aliveWolves.length >= aliveVillagers.length + aliveSolo.length && aliveWolves.length > 0 && aliveSoloKillers.length === 0) {
       return {
         winningTeam: 'werewolf',

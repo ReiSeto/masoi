@@ -153,8 +153,7 @@ function decideNightAction(botPlayer, allPlayers, gameState) {
       const shuffled = others.sort(() => Math.random() - 0.5);
       return { 
         actionType: 'cupid_link', 
-        targetId: shuffled[0][0],
-        target2Id: shuffled[1][0],
+        targetId: `${shuffled[0][0]},${shuffled[1][0]}`
       };
     }
     

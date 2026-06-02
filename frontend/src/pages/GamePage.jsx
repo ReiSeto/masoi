@@ -126,6 +126,7 @@ export default function GamePage() {
   const [showGunnerPromptLocal, setShowGunnerPromptLocal] = useState(false)
   const [isJailedAtNight, setIsJailedAtNight] = useState(false)
   const [ignitedTargets, setIgnitedTargets] = useState([])
+  const [shotTargets, setShotTargets] = useState([])
 
   useEffect(() => {
     setSelectedTarget(null)
@@ -352,7 +353,16 @@ export default function GamePage() {
       'game:hunter_shot_confirmed': (data) => setSelectedTarget(data.targetId),
       'game:hunter_shot_result': (data) => {
         setGameEvents(prev => [...prev, { type: 'hunter', content: data.message, icon: '🏹' }])
-        setPlayers(prev => prev.map(p => p.userId?.toString() === data.targetId?.toString() ? { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug } : p))
+        const targetIdStr = data.targetId?.toString();
+        if (targetIdStr) {
+          setShotTargets(prev => [...prev, targetIdStr]);
+          setTimeout(() => {
+            setShotTargets(prev => prev.filter(id => id !== targetIdStr));
+            setPlayers(prev => prev.map(p => p.userId?.toString() === targetIdStr ? { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug } : p))
+          }, 2000);
+        } else {
+          setPlayers(prev => prev.map(p => p.userId?.toString() === data.targetId?.toString() ? { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug } : p))
+        }
         setHunterPrompt(null)
       },
       'game:gunner_prompt': (data) => {
@@ -360,7 +370,35 @@ export default function GamePage() {
       },
       'game:gunner_shot_result': (data) => {
         setGameEvents(prev => [...prev, { type: 'gunner', content: data.message, icon: '🔫' }])
-        setPlayers(prev => prev.map(p => p.userId?.toString() === data.targetId?.toString() ? { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug } : p))
+        const targetIdStr = data.targetId?.toString();
+        
+        setPlayers(prev => prev.map(p => {
+          if (p.userId?.toString() === data.gunnerId?.toString()) {
+            return { ...p, roleSlug: 'gunner', roleData: { ...p.roleData, revealed: true } };
+          }
+          return p;
+        }))
+
+        if (targetIdStr) {
+          setShotTargets(prev => [...prev, targetIdStr]);
+          setTimeout(() => {
+            setShotTargets(prev => prev.filter(id => id !== targetIdStr));
+            setPlayers(prev => prev.map(p => {
+              if (p.userId?.toString() === targetIdStr) {
+                return { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug };
+              }
+              return p;
+            }))
+          }, 2000);
+        } else {
+          setPlayers(prev => prev.map(p => {
+            if (p.userId?.toString() === data.targetId?.toString()) {
+              return { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug };
+            }
+            return p;
+          }))
+        }
+
         setGunnerPrompt(null)
         toast.success(data.message, { icon: '🔫', duration: 5000 })
       },
@@ -377,7 +415,7 @@ export default function GamePage() {
           setTimeout(() => {
             setIgnitedTargets([]);
             setPlayers(prev => prev.map(p => stringTargetIds.includes(p.userId?.toString()) ? { ...p, isAlive: false, roleSlug: (data.roleReveals && data.roleReveals[p.userId]) || p.roleSlug } : p))
-          }, 1500);
+          }, 2000);
         } else {
           setPlayers(prev => prev.map(p => data.targetIds?.map(id => id?.toString())?.includes(p.userId?.toString()) ? { ...p, isAlive: false, roleSlug: (data.roleReveals && data.roleReveals[p.userId]) || p.roleSlug } : p))
         }
@@ -506,7 +544,7 @@ export default function GamePage() {
   const cardBg = isNight ? 'bg-[#222d3e]/60 border-[#2d3a4f]' : 'bg-[#1a2230] border-slate-700/80 shadow-md'
   const activeTabStyle = isNight ? 'bg-[#18202d] border-b-2 border-indigo-500 text-white' : 'bg-[#f1f5f9] border-b-2 border-indigo-600 text-slate-900 font-extrabold'
 
-  const canChat = isAlive && (phase === 'discuss' || phase === 'vote' || (phase === 'night' && myRole?.team === 'werewolf'))
+  const canChat = !isAlive || phase === 'discuss' || phase === 'vote' || (phase === 'night' && (myRole?.team === 'werewolf' || myRole?.slug === 'jailer' || isJailedAtNight || myRole?.slug === 'medium'))
 
   const isMultiTargetAction = phase === 'night' && (
     (nightPrompt?.actionType === 'detective_investigate') ||
@@ -757,7 +795,7 @@ export default function GamePage() {
                   {(() => {
                     const channels = ['public'];
                     if (myRole?.team === 'werewolf') channels.push('wolf');
-                    if (!isAlive) channels.push('dead');
+                    if (!isAlive || (myRole?.slug === 'medium' && isAlive && phase === 'night')) channels.push('dead');
                     if ((myRole?.slug === 'jailer' && roleData?.nextJailed) || isJailedAtNight) {
                       channels.push('jail');
                     }
@@ -821,7 +859,7 @@ export default function GamePage() {
 
             {/* Chat selector */}
             <div className={`flex border-b ${sidebarBorder} bg-black/5`}>
-              {['public', ...(myRole?.team === 'werewolf' ? ['wolf'] : []), ...(!isAlive ? ['dead'] : [])].map(ch => (
+              {['public', ...(myRole?.team === 'werewolf' ? ['wolf'] : []), ...(!isAlive || (myRole?.slug === 'medium' && isAlive && phase === 'night') ? ['dead'] : [])].map(ch => (
                 <button key={ch} onClick={() => setChatChannel(ch)}
                   className={`flex-1 py-2.5 text-[10px] font-extrabold transition-colors ${chatChannel === ch ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-500 hover:text-slate-700'}`}>
                   {ch === 'public' ? '💬 Chung' : ch === 'wolf' ? '🐺 Sói' : '💀 Âm Hồn'}
@@ -1028,6 +1066,7 @@ export default function GamePage() {
             const isSelected = selectedTarget === p.userId || selectedTargets.includes(p.userId)
             const isDoused = roleData?.doused?.includes(p.userId)
             const showArsonistFire = (myRole?.slug === 'arsonist' && isDoused && activeSkillType === 'arsonist_ignite') || ignitedTargets.includes(p.userId?.toString())
+            const showShotEffect = shotTargets.includes(p.userId?.toString())
             const showJailerEffect = p.isAlive && ((phase === 'night' && ((myRole?.slug === 'jailer' && roleData?.nextJailed?.toString() === p.userId?.toString()) || (isJailedAtNight && p.userId?.toString() === user?.id?.toString()))) || (myRole?.slug === 'jailer' && isSelected))
             
             const currentTargets = nightPrompt?.actions 
@@ -1046,7 +1085,13 @@ export default function GamePage() {
                     setSelectedTargets(prev => prev.filter(id => id !== p.userId))
                   } else {
                     if (selectedTargets.length < 2) {
-                      setSelectedTargets(prev => [...prev, p.userId])
+                      setSelectedTargets(prev => {
+                        const newTargets = [...prev, p.userId];
+                        if (newTargets.length === 2) {
+                          handleNightAction(newTargets.join(','));
+                        }
+                        return newTargets;
+                      })
                     } else {
                       toast.error('Chỉ được chọn tối đa 2 người', { icon: '⚠️' })
                     }
@@ -1188,7 +1233,7 @@ export default function GamePage() {
 
                 {/* Visual Skill Effects Overlay */}
                 <AnimatePresence>
-                  {(isSelected || showArsonistFire || showJailerEffect) && (
+                  {(isSelected || showArsonistFire || showJailerEffect || showShotEffect) && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -1411,6 +1456,24 @@ export default function GamePage() {
                             />
                           ))}
                           <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-red-500 tracking-widest bg-slate-950/90 border border-red-600 px-3 py-1 rounded-lg animate-pulse shadow-lg shadow-red-900/50">HỎA HOẠN 🔥</span>
+                        </div>
+                      )}
+
+                      {/* Shot Effect (Gunner/Hunter) - Bullet hit effect */}
+                      {showShotEffect && (
+                        <div className="absolute inset-0 border-2 border-orange-500 rounded-2xl shadow-[inset_0_0_20px_rgba(249,115,22,0.6)] overflow-hidden">
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [1, 2, 3], opacity: [1, 0, 0] }}
+                            transition={{ duration: 0.5, ease: "easeOut" }}
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-orange-400 rounded-full"
+                          />
+                          <motion.div
+                            animate={{ opacity: [1, 0.5, 1] }}
+                            transition={{ repeat: Infinity, duration: 0.2 }}
+                            className="absolute inset-0 bg-orange-500/20"
+                          />
+                          <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[12px] font-black uppercase text-orange-500 tracking-widest bg-slate-950/90 border border-orange-600 px-3 py-1 rounded-lg shadow-lg">BỊ BẮN 🎯</span>
                         </div>
                       )}
 
