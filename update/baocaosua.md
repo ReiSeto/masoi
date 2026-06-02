@@ -1,0 +1,11 @@
+## Báo Cáo Sửa Lỗi Hiệu Ứng Cai Ngục (Jailer) Đã Chết
+- **Backend (GameEngine.js & NightPhase.js)**: Đã sửa lỗi lưu trữ state giam giữ vĩnh viễn. Khi Cai ngục chết, hệ thống tại phase đêm (`startNightPhase` và `resolveNight`) sẽ phát hiện trạng thái `!p.isAlive` và tự động cập nhật `nextJailed = null` trong `roleData` của Cai ngục. Điều này ngăn chặn việc server rò rỉ trạng thái giam giữ ảo ở các đêm sau.
+- **Frontend (GamePage.jsx)**: Bổ sung điều kiện kiểm tra `isAlive` của bản thân Cai ngục trước khi cho phép render kênh chat `jail` và trước khi render hiệu ứng song sắt giam cầm trên thẻ mục tiêu. Nhờ vậy, ngay cả khi server có độ trễ, Cai ngục đã chết sẽ không bao giờ nhìn thấy hoặc tương tác được với hiệu ứng giam giữ cũ. Đã xử lý triệt để bug "đêm nào mục tiêu cũng bị giam" do state không được dọn dẹp.
+
+## Báo Cáo Cập Nhật Giao Diện Responsive Toàn Diện
+- **Frontend (App.jsx, LobbyPage.jsx, GamePage.jsx)**: Đã thiết kế lại cấu trúc layout sử dụng TailwindCSS responsive breakpoints (`sm:`, `md:`, `lg:`). Chuyển đổi toàn bộ layout của `GamePage` và `LobbyPage` từ màn hình tĩnh (desktop) sang cấu trúc linh hoạt thích ứng 100%. Áp dụng đơn vị chuẩn cực mới là Dynamic Viewport Height (`dvh`) để giao diện không bị giật lác hay sai kích thước trên các trình duyệt mobile khi thay đổi thanh trạng thái.
+- **Mobile & Tablet**: Màn hình tự động chuyển sang layout `flex-col`, tự động xếp chồng giao diện hợp lý. Đặc biệt dùng `order-1`, `order-2` đưa phần Game Board lên đầu ở bản điện thoại (quan trọng hơn) để dễ chơi, phần khung thoại và điều khiển nằm phía dưới màn hình. Chỉnh sửa lưới avatar co giãn xuống 3, 4, hoặc 5 cột tùy mức độ phân giải của máy, giúp người chơi ko bị che khuất tầm nhìn.
+- **Laptop & PC**: Hiển thị bảng điều khiển 3 cột chia màn hình hoàn hảo như game nguyên bản, tận dụng tối đa lợi thế màn hình siêu rộng để tạo cảm giác chuyên nghiệp, hiện đại, và tinh vi.
+
+## Báo Cáo Sửa Lỗi Icon Sói (wolf-icon.svg)
+- **Frontend (wolf-icon.svg)**: Đã điều chỉnh lại các thuộc tính vị trí (x="50%", y="50%") và căn giữa (dominant-baseline="central", text-anchor="middle") cho ký tự bên trong thẻ `<text>` của SVG. Điều này khắc phục triệt để tình trạng icon bị lệch và mất một góc, đảm bảo hiển thị hình ảnh hoàn hảo ngay chính giữa viewport.
