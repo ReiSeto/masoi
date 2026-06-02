@@ -211,7 +211,7 @@ export default function LobbyPage() {
                                   )
                                 })}
                               </div>
-                              <div className="grid grid-cols-5 gap-1 max-h-40 overflow-y-auto pr-1">
+                              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-5 gap-1 max-h-40 overflow-y-auto pr-1">
                                 {ROLES_DISPLAY.map(role => (
                                   <div key={role.slug} onClick={() => handleRoleClick(role.slug)} title={role.vi} className="flex flex-col items-center justify-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer text-2xl transition-transform hover:scale-110">
                                     {role.icon}
@@ -308,9 +308,9 @@ export default function LobbyPage() {
       </header>
 
       {/* MAIN 3-COLUMN LAYOUT */}
-      <div className="relative z-10 flex min-h-[calc(100vh-64px)]">
+      <div className="relative z-10 flex flex-col lg:flex-row min-h-[calc(100vh-64px)]">
         {/* LEFT SIDEBAR — Navigation */}
-        <aside className="w-64 p-4 flex flex-col gap-3">
+        <aside className="w-full lg:w-64 p-4 flex flex-col gap-3 shrink-0">
           {/* Logo */}
           <div className="mb-4">
             <h1 className="text-3xl font-black tracking-tight" style={{ fontFamily: 'Outfit', color: '#fff' }}>
@@ -367,7 +367,7 @@ export default function LobbyPage() {
         </aside>
 
         {/* CENTER — Avatar/Welcome area */}
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center min-h-[40vh] lg:min-h-0 order-first lg:order-none p-4">
           <AnimatePresence mode="wait">
             {activeTab === 'play' && (
               <motion.div key="play" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -423,7 +423,7 @@ export default function LobbyPage() {
         </main>
 
         {/* RIGHT SIDEBAR — User Stats & Quests */}
-        <aside className="w-72 p-4 space-y-3">
+        <aside className="w-full lg:w-72 p-4 space-y-3 shrink-0">
           {/* User Card */}
           <div className="bg-white/95 rounded-2xl p-4 shadow-lg">
             <div className="flex items-center gap-3">

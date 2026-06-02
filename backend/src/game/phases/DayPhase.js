@@ -17,14 +17,14 @@ const DAY_DURATION = 10; // giây — thời gian đọc kết quả đêm (kh�
  */
 function generateDawnMessages(nightResults, round, lobbyRules = {}) {
   const messages = [];
-  
+
   messages.push({
     type: 'system',
     channel: 'public',
     content: `☀️ Bình minh ló dạng... (Vòng ${round})`,
     icon: '☀️',
   });
-  
+
   if (nightResults.deaths.length === 0 && nightResults.saves.length === 0) {
     messages.push({
       type: 'system',
@@ -69,12 +69,12 @@ function generateDawnMessages(nightResults, round, lobbyRules = {}) {
         default:
           deathMsg = `💀 ${death.username} đã chết trong đêm!`;
       }
-      
+
       // Ẩn vai trò khi chết (custom rule)
       if (!lobbyRules.hideRoleOnDeath && death.roleSlug) {
         deathMsg += ` (${death.roleSlug})`;
       }
-      
+
       messages.push({
         type: 'death',
         channel: 'public',
@@ -84,7 +84,7 @@ function generateDawnMessages(nightResults, round, lobbyRules = {}) {
         icon,
       });
     }
-    
+
     // Thông báo người được cứu (chỉ nói "ai đó đã được cứu", không lộ bởi ai)
     if (nightResults.saves.length > 0) {
       messages.push({
@@ -95,7 +95,7 @@ function generateDawnMessages(nightResults, round, lobbyRules = {}) {
       });
     }
   }
-  
+
   // Jailer notification
   if (nightResults.jailedPlayer) {
     messages.push({
@@ -105,7 +105,7 @@ function generateDawnMessages(nightResults, round, lobbyRules = {}) {
       icon: '⛓️',
     });
   }
-  
+
   // Custom events from night
   if (nightResults.events) {
     for (const evt of nightResults.events) {
@@ -119,7 +119,7 @@ function generateDawnMessages(nightResults, round, lobbyRules = {}) {
       }
     }
   }
-  
+
   return messages;
 }
 

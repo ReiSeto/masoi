@@ -9,7 +9,7 @@
  * - Kiểm tra Hunter (nếu Hunter bị vote → được bắn 1 người)
  */
 
-const VOTE_DURATION = 30; // giây — khớp với Wolvesville gốc (30s)
+const VOTE_DURATION = 15; // giây — khớp với Wolvesville gốc (30s)
 
 /**
  * Giải quyết phiếu bầu
@@ -20,7 +20,7 @@ async function resolveVotes(gameState) {
   const votes = await gameState.getAllVotes();
   const players = await gameState.getAllPlayers();
   const state = await gameState.get();
-  
+
   const result = {
     voteCounts: {},   // { targetId: totalVotes }
     votedOutPlayer: null,
@@ -29,18 +29,18 @@ async function resolveVotes(gameState) {
     jesterWin: false,
     events: [],
   };
-  
+
   // Đếm phiếu
   for (const [voterId, targetId] of Object.entries(votes)) {
     if (!targetId || targetId === 'skip') continue;
     const voter = players[voterId];
     if (!voter?.isAlive) continue;
-    
+
     // Thị Trưởng có 2 phiếu nếu đã lật bài
     const voteWeight = (voter.roleSlug === 'mayor' && voter.roleData?.revealed) ? 2 : 1;
     result.voteCounts[targetId] = (result.voteCounts[targetId] || 0) + voteWeight;
   }
-  
+
   // Tìm người có nhiều phiếu nhất
   let maxVotes = 0;
   let topCandidates = [];
@@ -52,7 +52,7 @@ async function resolveVotes(gameState) {
       topCandidates.push(targetId);
     }
   }
-  
+
   // Tính số lượng người sống và ngưỡng quá bán (lynch threshold = Math.floor(aliveCount / 2))
   const alivePlayers = Object.values(players).filter(p => p.isAlive);
   const aliveCount = alivePlayers.length;
@@ -81,7 +81,7 @@ async function resolveVotes(gameState) {
       team: votedPlayer?.team,
       votes: maxVotes,
     };
-    
+
     // Kiểm tra Jester
     if (votedPlayer?.roleSlug === 'jester') {
       result.jesterWin = true;
@@ -99,14 +99,14 @@ async function resolveVotes(gameState) {
         icon: '⚰️',
       });
     }
-    
+
     // Cập nhật trạng thái chết
     await gameState.updatePlayer(votedPlayerId, {
       isAlive: false,
       deathRound: state.round,
       deathCause: 'voted',
     });
-    
+
     // Kiểm tra Hunter — nếu bị vote chết, được bắn 1 người
     if (votedPlayer?.roleSlug === 'hunter' && !votedPlayer?.roleData?.shotUsed) {
       result.hunterPending = true;
@@ -117,17 +117,17 @@ async function resolveVotes(gameState) {
         icon: '🏹',
       });
     }
-    
+
     // Cập nhật alive/dead
     const updatedPlayers = await gameState.getAllPlayers();
     const alivePlayers = Object.keys(updatedPlayers).filter(id => updatedPlayers[id].isAlive);
     const deadPlayers = Object.keys(updatedPlayers).filter(id => !updatedPlayers[id].isAlive);
     await gameState.update({ alivePlayers, deadPlayers });
   }
-  
+
   // Clear votes cho round mới
   await gameState.clearVotes();
-  
+
   return result;
 }
 

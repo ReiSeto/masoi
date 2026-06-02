@@ -51,6 +51,7 @@ class GameEngine {
     this.gameState = new GameState(gameId);
     this.timer = null;
     this.isRunning = false;
+    this.isEnding = false;
   }
 
   /**
@@ -169,10 +170,16 @@ class GameEngine {
     let jailedPlayerId = null;
     let jailerId = null;
     for (const [pid, p] of Object.entries(players)) {
-      if (p.roleSlug === 'jailer' && p.isAlive) {
-        jailerId = pid;
-        jailedPlayerId = p.roleData?.nextJailed || null;
-        break;
+      if (p.roleSlug === 'jailer') {
+        if (p.isAlive) {
+          jailerId = pid;
+          jailedPlayerId = p.roleData?.nextJailed || null;
+        } else if (p.roleData?.nextJailed) {
+          // Xóa trạng thái giam nếu Cai Ngục đã chết
+          await this.gameState.updatePlayer(pid, {
+            roleData: { ...p.roleData, nextJailed: null }
+          });
+        }
       }
     }
 
@@ -359,7 +366,27 @@ class GameEngine {
     // Kiểm tra thắng thua sau đêm
     const winCheck = await this.checkWinCondition();
     if (winCheck) {
-      await this.endGame(winCheck);
+      // Vẫn gửi thông tin rạng sáng để hiển thị lịch sử người chết
+      const state = await this.gameState.get();
+      const { generateDawnMessages } = require('./phases/DayPhase');
+      const dawnMessages = generateDawnMessages(nightResults, state.round);
+      
+      this.emitToGame('game:phase_change', {
+        phase: 'dawn',
+        round: state.round,
+        duration: 0,
+        message: '☀️ Bình minh ló dạng... (Trò chơi kết thúc)',
+        deaths: nightResults.deaths.map(d => ({
+          playerId: d.playerId,
+          username: d.username,
+          cause: d.cause,
+          roleSlug: d.roleSlug,
+        })),
+        saves: nightResults.saves.length,
+        events: dawnMessages,
+      });
+
+      await this.triggerEndGame(winCheck, 4000);
       return;
     }
 
@@ -453,8 +480,8 @@ class GameEngine {
     if (!gunner || gunner.roleSlug !== 'gunner' || !gunner.isAlive) return { success: false };
     if ((gunner.roleData?.bullets || 0) <= 0) return { success: false, message: 'Hết đạn' };
     const state = await this.gameState.get();
-    if (gunner.roleData?.lastShotRound === state.round) {
-      return { success: false, message: 'Bạn chỉ được bắn tối đa 1 viên đạn mỗi ngày. Hãy đợi đến ngày mai!' };
+    if (gunner.roleData?.lastShotRound && state.round - gunner.roleData.lastShotRound <= 1) {
+      return { success: false, message: 'Sau khi bắn, bạn phải đợi cách 1 ngày mới có thể bắn tiếp!' };
     }
     const target = await this.gameState.getPlayer(targetId);
     if (!target || !target.isAlive) return { success: false };
@@ -482,7 +509,7 @@ class GameEngine {
 
     const winCheck = await this.checkWinCondition();
     if (winCheck) {
-      await this.endGame(winCheck);
+      await this.triggerEndGame(winCheck, 3000);
       return { success: true };
     }
 
@@ -546,11 +573,11 @@ class GameEngine {
 
     // Jester thắng
     if (voteResult.jesterWin) {
-      await this.endGame({
+      await this.triggerEndGame({
         winningTeam: 'solo',
         winnerRoleSlug: 'jester',
         reason: `🃏 Kẻ Hề (${voteResult.votedOutPlayer.username}) thắng cuộc!`,
-      });
+      }, 3000);
       return;
     }
 
@@ -565,7 +592,7 @@ class GameEngine {
     } else {
       const winCheck = await this.checkWinCondition();
       if (winCheck) {
-        await this.endGame(winCheck);
+        await this.triggerEndGame(winCheck, 3000);
       } else {
         await nextPhase();
       }
@@ -589,7 +616,7 @@ class GameEngine {
         setTimeout(async () => {
           const winCheck = await this.checkWinCondition();
           if (winCheck) {
-            await this.endGame(winCheck);
+            await this.triggerEndGame(winCheck, 3000);
           } else {
             nextPhaseCallback();
           }
@@ -651,7 +678,7 @@ class GameEngine {
       // Check win condition after hunter shot
       const winCheck = await this.checkWinCondition();
       if (winCheck) {
-        await this.endGame(winCheck);
+        await this.triggerEndGame(winCheck, 3000);
       } else {
         nextPhaseCallback();
       }
@@ -805,6 +832,20 @@ class GameEngine {
   // ============================================================
   // END GAME
   // ============================================================
+  async triggerEndGame(winData, delayMs = 3000) {
+    if (this.isEnding) return;
+    this.isEnding = true;
+    this.clearTimer();
+
+    if (delayMs > 0) {
+      setTimeout(async () => {
+        await this.endGame(winData);
+      }, delayMs);
+    } else {
+      await this.endGame(winData);
+    }
+  }
+
   async endGame(winData) {
     this.clearTimer();
     this.isRunning = false;
@@ -928,7 +969,7 @@ class GameEngine {
       // 5. Kiểm tra điều kiện thắng
       const winCheck = await this.checkWinCondition();
       if (winCheck) {
-        await this.endGame(winCheck);
+        await this.triggerEndGame(winCheck, 3000);
       }
 
       return { success: true, message: `Đã xử tử ${target.username} thành công.` };
@@ -988,7 +1029,7 @@ class GameEngine {
       // Kiểm tra điều kiện thắng
       const winCheck = await this.checkWinCondition();
       if (winCheck) {
-        await this.endGame(winCheck);
+        await this.triggerEndGame(winCheck, 3000);
       }
 
       return { success: true, message: `Đã phóng hỏa châm ngòi thành công.` };

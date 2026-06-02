@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'
+const API = import.meta.env.VITE_API_URL || '/api/v1'
 
 // Axios instance
 const api = axios.create({ baseURL: API, withCredentials: true })

@@ -127,6 +127,8 @@ export default function GamePage() {
   const [isJailedAtNight, setIsJailedAtNight] = useState(false)
   const [ignitedTargets, setIgnitedTargets] = useState([])
   const [shotTargets, setShotTargets] = useState([])
+  const [executeTargets, setExecuteTargets] = useState([])
+  const [mobileTab, setMobileTab] = useState('board') // 'board' or 'chat'
 
   useEffect(() => {
     setSelectedTarget(null)
@@ -404,7 +406,23 @@ export default function GamePage() {
       },
       'game:jailer_execute_result': (data) => {
         setGameEvents(prev => [...prev, { type: 'jailer', content: data.message, icon: '☠️' }])
-        setPlayers(prev => prev.map(p => p.userId?.toString() === data.targetId?.toString() ? { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug } : p))
+        const targetIdStr = data.targetId?.toString();
+        
+        if (targetIdStr) {
+          setExecuteTargets(prev => [...prev, targetIdStr]);
+          setTimeout(() => {
+            setExecuteTargets(prev => prev.filter(id => id !== targetIdStr));
+            setPlayers(prev => prev.map(p => {
+              if (p.userId?.toString() === targetIdStr) {
+                return { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug };
+              }
+              return p;
+            }))
+          }, 1500);
+        } else {
+          setPlayers(prev => prev.map(p => p.userId?.toString() === data.targetId?.toString() ? { ...p, isAlive: false, roleSlug: data.targetRole || p.roleSlug } : p))
+        }
+        
         toast.success(data.message, { icon: '☠️', duration: 5000 })
       },
       'game:arsonist_ignite_result': (data) => {
@@ -572,10 +590,10 @@ export default function GamePage() {
   const roleRenderCount = {}
 
   return (
-    <div className={`min-h-screen ${mainBg} text-white flex flex-row overflow-hidden font-sans transition-colors duration-1000`}>
+    <div className={`min-h-[100dvh] h-[100dvh] ${mainBg} text-white flex flex-col lg:flex-row overflow-hidden font-sans transition-colors duration-1000 relative pb-14 lg:pb-0`}>
       
       {/* LEFT COLUMN: Sidebar panel replication of Image 2 & 3 */}
-      <aside className={`w-96 min-w-[360px] h-screen ${sidebarBg} border-r ${sidebarBorder} flex flex-col justify-between overflow-hidden shadow-2xl relative z-10 transition-colors duration-1000`}>
+      <aside className={`w-full lg:w-96 lg:min-w-[360px] h-full ${sidebarBg} border-r-0 lg:border-r border-t lg:border-t-0 ${sidebarBorder} flex-col justify-between overflow-hidden shadow-2xl relative z-10 transition-colors duration-1000 order-2 lg:order-1 ${mobileTab === 'chat' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* Left Sidebar Header */}
         <div className={`flex items-center justify-between p-3 border-b ${sidebarBorder}`}>
@@ -796,7 +814,7 @@ export default function GamePage() {
                     const channels = ['public'];
                     if (myRole?.team === 'werewolf') channels.push('wolf');
                     if (!isAlive || (myRole?.slug === 'medium' && isAlive && phase === 'night')) channels.push('dead');
-                    if ((myRole?.slug === 'jailer' && roleData?.nextJailed) || isJailedAtNight) {
+                    if ((myRole?.slug === 'jailer' && isAlive && roleData?.nextJailed) || isJailedAtNight) {
                       channels.push('jail');
                     }
                     return channels;
@@ -914,7 +932,7 @@ export default function GamePage() {
       </aside>
 
       {/* RIGHT COLUMN: Player grid panel styled as in Image 2 & 3 */}
-      <main className="flex-1 h-screen flex flex-col overflow-hidden relative">
+      <main className={`flex-1 h-full flex-col overflow-hidden relative order-1 lg:order-2 ${mobileTab === 'board' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* TOP STATUS BAR: Features the Role Badge Hover and Hold (Task 1) */}
         <header className={`flex items-center justify-between px-6 py-2.5 border-b relative z-20 ${
@@ -1035,7 +1053,7 @@ export default function GamePage() {
         </header>
 
         {/* TASK 2: Player Grid (arranged in 4 columns with background forest trees) */}
-        <div className="flex-1 p-6 overflow-y-auto grid grid-cols-4 gap-4 pb-24 scrollbar-hide z-0">
+        <div className="flex-1 p-2 sm:p-4 lg:p-6 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 gap-2 sm:gap-4 pb-24 scrollbar-hide z-0">
           {sortedPlayers.map((p) => {
             const isMe = p.userId === user?.id
             const isWolf = wolfTeam.find(w => w.userId === p.userId)
@@ -1067,7 +1085,8 @@ export default function GamePage() {
             const isDoused = roleData?.doused?.includes(p.userId)
             const showArsonistFire = (myRole?.slug === 'arsonist' && isDoused && activeSkillType === 'arsonist_ignite') || ignitedTargets.includes(p.userId?.toString())
             const showShotEffect = shotTargets.includes(p.userId?.toString())
-            const showJailerEffect = p.isAlive && ((phase === 'night' && ((myRole?.slug === 'jailer' && roleData?.nextJailed?.toString() === p.userId?.toString()) || (isJailedAtNight && p.userId?.toString() === user?.id?.toString()))) || (myRole?.slug === 'jailer' && isSelected))
+            const showExecuteEffect = executeTargets.includes(p.userId?.toString())
+            const showJailerEffect = p.isAlive && ((phase === 'night' && ((myRole?.slug === 'jailer' && isAlive && roleData?.nextJailed?.toString() === p.userId?.toString()) || (isJailedAtNight && p.userId?.toString() === user?.id?.toString()))) || (myRole?.slug === 'jailer' && isAlive && isSelected))
             
             const currentTargets = nightPrompt?.actions 
                 ? (nightPrompt.actions.find(a => a.type === activeSkillType)?.targets || []) 
@@ -1233,7 +1252,7 @@ export default function GamePage() {
 
                 {/* Visual Skill Effects Overlay */}
                 <AnimatePresence>
-                  {(isSelected || showArsonistFire || showJailerEffect || showShotEffect) && (
+                  {(isSelected || showArsonistFire || showJailerEffect || showShotEffect || showExecuteEffect) && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -1474,6 +1493,34 @@ export default function GamePage() {
                             className="absolute inset-0 bg-orange-500/20"
                           />
                           <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[12px] font-black uppercase text-orange-500 tracking-widest bg-slate-950/90 border border-orange-600 px-3 py-1 rounded-lg shadow-lg">BỊ BẮN 🎯</span>
+                        </div>
+                      )}
+
+                      {/* Execute Effect (Jailer) - Bullet dropping on head / Execution */}
+                      {showExecuteEffect && (
+                        <div className="absolute inset-0 border-2 border-red-500 rounded-2xl shadow-[inset_0_0_20px_rgba(239,68,68,0.6)] overflow-hidden">
+                          {/* Bullet dropping animation */}
+                          <motion.div
+                            initial={{ y: -80, opacity: 0, scale: 0.8 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            transition={{ type: "spring", stiffness: 200, damping: 12, duration: 0.5 }}
+                            className="absolute top-[35%] left-1/2 transform -translate-x-1/2 text-5xl filter drop-shadow-[0_0_15px_rgba(239,68,68,0.9)] z-20"
+                          >
+                            🔫
+                          </motion.div>
+                          {/* Blood splat / Hit impact */}
+                          <motion.div
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: [0, 1.5, 2], opacity: [0, 1, 0] }}
+                            transition={{ delay: 0.4, duration: 0.6, ease: "easeOut" }}
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-red-600 rounded-full blur-sm z-10"
+                          />
+                          <motion.div
+                            animate={{ opacity: [1, 0.6, 1] }}
+                            transition={{ repeat: Infinity, duration: 0.2 }}
+                            className="absolute inset-0 bg-red-900/30 z-0"
+                          />
+                          <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-[12px] font-black uppercase text-red-500 tracking-widest bg-slate-950/90 border border-red-600 px-3 py-1 rounded-lg shadow-lg z-30">XỬ TỬ ☠️</span>
                         </div>
                       )}
 
@@ -1750,13 +1797,17 @@ export default function GamePage() {
                 onClick={() => {
                   if ((roleData?.bullets || 0) <= 0) {
                     toast.error('Bạn đã hết đạn bạc!', { icon: '⚠️' });
-                  } else if (roleData?.lastShotRound === round) {
-                    toast.error('Mỗi ngày chỉ được bắn tối đa 1 lần. Hãy đợi đến ngày mai!', { icon: '⚠️' });
+                  } else if (roleData?.lastShotRound && round - roleData.lastShotRound <= 1) {
+                    toast.error('Sau khi bắn, bạn phải đợi cách 1 ngày mới có thể bắn tiếp!', { icon: '⚠️' });
                   } else {
                     setShowGunnerPromptLocal(true);
                   }
                 }}
-                className="w-14 h-14 rounded-full bg-yellow-600 border-2 border-yellow-400 text-2xl flex items-center justify-center shadow-lg hover:scale-110 transition-all shadow-yellow-500/30"
+                className={`w-14 h-14 rounded-full border-2 text-2xl flex items-center justify-center shadow-lg transition-all ${
+                  (roleData?.bullets === 0 || (roleData?.lastShotRound && round - roleData.lastShotRound <= 1))
+                    ? 'bg-slate-700 border-slate-500 grayscale cursor-not-allowed opacity-60'
+                    : 'bg-yellow-600 border-yellow-400 hover:scale-110 shadow-yellow-500/30'
+                }`}
                 title={`Bắn hạ kẻ tình nghi (Còn ${roleData?.bullets ?? 2} viên)`}
               >
                 🔫
@@ -1953,6 +2004,27 @@ export default function GamePage() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-14 bg-slate-900 border-t border-slate-700 flex z-50 pb-safe">
+        <button 
+          onClick={() => setMobileTab('board')}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${mobileTab === 'board' ? 'text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-300'}`}
+        >
+          <span className="text-xl leading-none">🎮</span>
+          <span className="text-[10px] uppercase tracking-wider">Bàn Chơi</span>
+        </button>
+        <button 
+          onClick={() => setMobileTab('chat')}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative ${mobileTab === 'chat' ? 'text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-300'}`}
+        >
+          <span className="text-xl leading-none">💬</span>
+          <span className="text-[10px] uppercase tracking-wider">Trò Chuyện</span>
+          {messages.length > 0 && mobileTab === 'board' && (
+            <span className="absolute top-2 right-[25%] w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
+          )}
+        </button>
+      </div>
 
     </div>
   )

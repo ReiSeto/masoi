@@ -16,7 +16,7 @@
  * 12. Medium giao tiếp người chết (medium_revive)
  */
 
-const NIGHT_DURATION = 30; // giây — khớp với Wolvesville gốc (30s)
+const NIGHT_DURATION = 15; // giây — khớp với Wolvesville gốc (30s)
 
 /**
  * Xử lý tất cả hành động đêm và trả về kết quả
@@ -28,7 +28,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
   const actions = await gameState.getAllNightActions();
   const players = await gameState.getAllPlayers();
   const state = await gameState.get();
-  
+
   const results = {
     deaths: [],       // [{playerId, username, cause, killedBy, roleSlug}]
     saves: [],        // [{playerId, username, savedBy}]
@@ -40,32 +40,39 @@ async function resolveNight(gameState, lobbyRules = {}) {
     jailedPlayer: null, // player who was jailed
     lastWills: [],    // [{playerId, username, content}] — if Last Will enabled
   };
-  
+
   // ============================================================
   // 1. JAILER — Giam người (vô hiệu hóa hành động đêm của người bị giam)
   // ============================================================
   let jailedPlayerId = null;
   let jailerId = null;
-  
-  // Tìm Cai Ngục còn sống
+
+  // Tìm Cai Ngục
   for (const [playerId, player] of Object.entries(players)) {
-    if (player.roleSlug === 'jailer' && player.isAlive) {
-      jailerId = playerId;
-      if (player.roleData?.nextJailed) {
-        jailedPlayerId = player.roleData.nextJailed;
-        results.jailedPlayer = jailedPlayerId;
-        results.events.push({
-          type: 'jail',
-          message: `⛓️ Cai Ngục đã giam một người chơi đêm nay.`,
-        });
-        // Cập nhật lastJailed = jailedPlayerId, reset nextJailed = null
+    if (player.roleSlug === 'jailer') {
+      if (player.isAlive) {
+        jailerId = playerId;
+        if (player.roleData?.nextJailed) {
+          jailedPlayerId = player.roleData.nextJailed;
+          results.jailedPlayer = jailedPlayerId;
+          results.events.push({
+            type: 'jail',
+            message: `⛓️ Cai Ngục đã giam một người chơi đêm nay.`,
+          });
+          // Cập nhật lastJailed = jailedPlayerId, reset nextJailed = null
+          await gameState.updatePlayer(playerId, {
+            roleData: { ...player.roleData, lastJailed: jailedPlayerId, nextJailed: null }
+          });
+        }
+      } else if (player.roleData?.nextJailed) {
+        // Xóa trạng thái giam nếu Cai Ngục đã chết
         await gameState.updatePlayer(playerId, {
-          roleData: { ...player.roleData, lastJailed: jailedPlayerId, nextJailed: null }
+          roleData: { ...player.roleData, nextJailed: null }
         });
       }
     }
   }
-  
+
   // Jailer execution
   for (const [playerId, action] of Object.entries(actions)) {
     if (action.actionType === 'jailer_execute' && action.targetId && playerId?.toString() === jailerId?.toString()) {
@@ -84,7 +91,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       }
     }
   }
-  
+
   // ============================================================
   // 2. CUPID — Ghép cặp (chỉ đêm 1)
   // ============================================================
@@ -134,7 +141,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       }
     }
   }
-  
+
   // ============================================================
   // 3. ARSONIST — Đổ dầu / Đốt
   // ============================================================
@@ -144,21 +151,21 @@ async function resolveNight(gameState, lobbyRules = {}) {
       const arsonist = players[playerId];
       if (arsonist?.roleSlug === 'arsonist' && arsonist.isAlive) {
         const doused = arsonist.roleData?.doused || [];
-        
+
         let targetsToDouse = [];
         if (Array.isArray(action.targetId)) {
           targetsToDouse = action.targetId;
         } else if (typeof action.targetId === 'string') {
           targetsToDouse = action.targetId.split(',').filter(Boolean);
         }
-        
+
         let newDoused = [...doused];
         for (const tId of targetsToDouse) {
           if (players[tId]?.isAlive && !newDoused.includes(tId)) {
             newDoused.push(tId);
           }
         }
-        
+
         await gameState.updatePlayer(playerId, {
           roleData: { ...arsonist.roleData, doused: newDoused }
         });
@@ -193,7 +200,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       }
     }
   }
-  
+
   // ============================================================
   // 4. SERIAL KILLER (sk_kill)
   // ============================================================
@@ -205,7 +212,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
     }
   }
   results.skTarget = skTarget;
-  
+
   // ============================================================
   // 5. TÌM MỤC TIÊU CỦA SÓI (vote theo số đông, hòa thì random)
   // ============================================================
@@ -217,7 +224,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       wolfVotes[targetId] = (wolfVotes[targetId] || 0) + 1;
     }
   }
-  
+
   let wolfTarget = null;
   if (Object.keys(wolfVotes).length > 0) {
     // Tìm số phiếu cao nhất
@@ -226,7 +233,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
     const topTargets = Object.entries(wolfVotes)
       .filter(([, votes]) => votes === maxVotes)
       .map(([targetId]) => targetId);
-    
+
     if (topTargets.length === 1) {
       // Số đông rõ ràng → chọn target đó
       wolfTarget = topTargets[0];
@@ -240,7 +247,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
     }
   }
   results.wolfTarget = wolfTarget;
-  
+
   // ============================================================
   // 6. WOLF SEER — Xem aura (cho phe sói)
   // ============================================================
@@ -261,7 +268,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       }
     }
   }
-  
+
   // ============================================================
   // 7. XỬ LÝ TIÊN TRI (seer_check)
   // ============================================================
@@ -284,7 +291,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       }
     }
   }
-  
+
   // ============================================================
   // 8. XỬ LÝ BÁC SĨ CỨU (doctor_save)
   // ============================================================
@@ -305,7 +312,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       });
     }
   }
-  
+
   // ============================================================
   // 9. XỬ LÝ PHÙ THỦY (witch_heal / witch_poison)
   // ============================================================
@@ -329,13 +336,13 @@ async function resolveNight(gameState, lobbyRules = {}) {
       });
     }
   }
-  
+
   // ============================================================
   // 10. XỬ LÝ VỆ SĨ (bodyguard_protect)
   // ============================================================
   let bodyguardProtectTarget = null;
   let bodyguardId = Object.keys(players).find(pid => players[pid]?.roleSlug === 'bodyguard');
-  
+
   for (const [playerId, action] of Object.entries(actions)) {
     if (playerId?.toString() === jailedPlayerId?.toString()) continue;
     if (action.actionType === 'bodyguard_protect' && action.targetId) {
@@ -349,7 +356,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       });
     }
   }
-  
+
   // ============================================================
   // 11. XỬ LÝ THÁM TỬ (detective_investigate)
   // ============================================================
@@ -362,16 +369,16 @@ async function resolveNight(gameState, lobbyRules = {}) {
       } else if (typeof action.targetId === 'string') {
         targetIds = action.targetId.split(',').filter(Boolean);
       }
-      
+
       if (targetIds.length === 2) {
         const t1 = players[targetIds[0]];
         const t2 = players[targetIds[1]];
         if (t1 && t2) {
           const sameTeam = t1.team === t2.team;
-          const message = sameTeam 
+          const message = sameTeam
             ? `🔍 ${t1.username} và ${t2.username} CÙNG một phe!`
             : `🔍 ${t1.username} và ${t2.username} KHÔNG cùng một phe!`;
-            
+
           results.events.push({
             type: 'detective_result',
             playerId: playerId,
@@ -382,14 +389,14 @@ async function resolveNight(gameState, lobbyRules = {}) {
       }
     }
   }
-  
+
   // ============================================================
   // GIẢI QUYẾT KẾT QUẢ — AI SỐNG, AI CHẾT?
   // ============================================================
-  
+
   // Người bị giam không bị giết bởi sói hay SK (Jailer bảo vệ)
   const isJailed = (id) => id?.toString() === jailedPlayerId?.toString();
-  
+
   // XỬ LÝ VỆ SĨ (GUARD) CƠ CHẾ BỊ THƯƠNG
   const bg = bodyguardId ? players[bodyguardId] : null;
   const bgActive = bg && bg.isAlive && !isJailed(bodyguardId);
@@ -403,7 +410,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
         bg.roleData = { ...bg.roleData, isInjured: true };
         await gameState.updatePlayer(bodyguardId, { roleData: bg.roleData });
         bgInjuredThisNight = true;
-        
+
         results.saves.push({
           playerId: bodyguardId,
           username: bg.username,
@@ -422,7 +429,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
         bg.roleData = { ...bg.roleData, isInjured: true };
         await gameState.updatePlayer(bodyguardId, { roleData: bg.roleData });
         bgInjuredThisNight = true;
-        
+
         results.saves.push({
           playerId: bodyguardId,
           username: bg.username,
@@ -440,7 +447,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
   // B. Người được Vệ Sĩ bảo vệ bị tấn công
   if (bgActive && bodyguardProtectTarget) {
     const targetPlayer = players[bodyguardProtectTarget];
-    
+
     // B1. Bị Sói tấn công
     if (wolfTarget === bodyguardProtectTarget && targetPlayer?.isAlive && !isJailed(bodyguardProtectTarget)) {
       if (!bg.roleData?.isInjured) {
@@ -448,7 +455,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
         bg.roleData = { ...bg.roleData, isInjured: true };
         await gameState.updatePlayer(bodyguardId, { roleData: bg.roleData });
         bgInjuredThisNight = true;
-        
+
         results.saves.push({
           playerId: wolfTarget,
           username: targetPlayer.username,
@@ -484,7 +491,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
         bg.roleData = { ...bg.roleData, isInjured: true };
         await gameState.updatePlayer(bodyguardId, { roleData: bg.roleData });
         bgInjuredThisNight = true;
-        
+
         results.saves.push({
           playerId: skTarget,
           username: targetPlayer.username,
@@ -530,8 +537,8 @@ async function resolveNight(gameState, lobbyRules = {}) {
       });
     } else {
       const saved = wolfTarget === doctorSaveTarget
-                  || wolfTarget === witchHealTarget;
-      
+        || wolfTarget === witchHealTarget;
+
       if (saved) {
         if (wolfTarget === witchHealTarget) witchHealUsedSuccessfully = true;
         results.saves.push({
@@ -550,7 +557,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       }
     }
   }
-  
+
   // Phù Thủy độc
   if (witchPoisonTarget && players[witchPoisonTarget]?.isAlive && !isJailed(witchPoisonTarget)) {
     // Kiểm tra không bị trùng với người đã chết bởi sói
@@ -565,7 +572,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       });
     }
   }
-  
+
   // Serial Killer giết
   if (skTarget && players[skTarget]?.isAlive && !isJailed(skTarget)) {
     const alreadyDead = results.deaths.find(d => d.playerId === skTarget);
@@ -609,7 +616,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       });
     }
   }
-  
+
   // ============================================================
   // CUPID LOVER CHECK — Nếu 1 người yêu chết, người kia cũng chết
   // ============================================================
@@ -619,7 +626,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       const [l1, l2] = pData.roleData.lovers;
       const l1Dead = results.deaths.find(d => d.playerId === l1);
       const l2Dead = results.deaths.find(d => d.playerId === l2);
-      
+
       if (l1Dead && !l2Dead && players[l2]?.isAlive) {
         results.deaths.push({
           playerId: l2,
@@ -648,7 +655,7 @@ async function resolveNight(gameState, lobbyRules = {}) {
       }
     }
   }
-  
+
   // ============================================================
   // CẬP NHẬT TRẠNG THÁI CHẾT
   // ============================================================
@@ -659,16 +666,16 @@ async function resolveNight(gameState, lobbyRules = {}) {
       deathCause: death.cause,
     });
   }
-  
+
   // Cập nhật danh sách alive/dead trong state
   const updatedPlayers = await gameState.getAllPlayers();
   const alivePlayers = Object.keys(updatedPlayers).filter(id => updatedPlayers[id].isAlive);
   const deadPlayers = Object.keys(updatedPlayers).filter(id => !updatedPlayers[id].isAlive);
   await gameState.update({ alivePlayers, deadPlayers });
-  
+
   // Clear night actions cho round mới
   await gameState.clearNightActions();
-  
+
   return results;
 }
 

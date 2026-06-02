@@ -3,6 +3,5 @@ node_modules/
 .env.*
 dist/
 build/
-.claude/
 *.log
 .DS_Store

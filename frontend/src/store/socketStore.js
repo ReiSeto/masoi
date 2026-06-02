@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { io } from 'socket.io-client'
 import toast from 'react-hot-toast'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || ''
 
 export const useSocketStore = create((set, get) => ({
   socket: null,
