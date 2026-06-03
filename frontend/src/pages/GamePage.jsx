@@ -590,10 +590,10 @@ export default function GamePage() {
   const roleRenderCount = {}
 
   return (
-    <div className={`min-h-[100dvh] h-[100dvh] ${mainBg} text-white flex flex-col lg:flex-row overflow-hidden font-sans transition-colors duration-1000 relative pb-14 lg:pb-0`}>
+    <div className={`min-h-[100dvh] h-[100dvh] ${mainBg} text-white flex flex-col lg:flex-row overflow-hidden font-sans transition-colors duration-1000 relative pb-[56px] lg:pb-0`}>
       
       {/* LEFT COLUMN: Sidebar panel replication of Image 2 & 3 */}
-      <aside className={`w-full lg:w-96 lg:min-w-[360px] h-full ${sidebarBg} border-r-0 lg:border-r border-t lg:border-t-0 ${sidebarBorder} flex-col justify-between overflow-hidden shadow-2xl relative z-10 transition-colors duration-1000 order-2 lg:order-1 ${mobileTab === 'chat' ? 'flex' : 'hidden lg:flex'}`}>
+      <aside className={`w-full lg:w-96 lg:min-w-[360px] h-full ${sidebarBg} border-r-0 lg:border-r border-t lg:border-t-0 ${sidebarBorder} flex-col justify-between overflow-hidden shadow-2xl relative z-10 transition-colors duration-1000 order-2 lg:order-1 ${mobileTab === 'chat' ? 'flex' : mobileTab === 'info' ? 'hidden' : 'hidden lg:flex'}`}>
         
         {/* Left Sidebar Header */}
         <div className={`flex items-center justify-between p-3 border-b ${sidebarBorder}`}>
@@ -932,21 +932,23 @@ export default function GamePage() {
       </aside>
 
       {/* RIGHT COLUMN: Player grid panel styled as in Image 2 & 3 */}
-      <main className={`flex-1 h-full flex-col overflow-hidden relative order-1 lg:order-2 ${mobileTab === 'board' ? 'flex' : 'hidden lg:flex'}`}>
+      <main className={`flex-1 h-full flex-col overflow-hidden relative order-1 lg:order-2 ${mobileTab === 'board' || mobileTab === 'info' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* TOP STATUS BAR: Features the Role Badge Hover and Hold (Task 1) */}
-        <header className={`flex items-center justify-between px-6 py-2.5 border-b relative z-20 ${
+        <header className={`flex items-center justify-between px-3 sm:px-6 py-2 sm:py-2.5 border-b relative z-20 ${
           isNight ? 'bg-slate-900/40 border-slate-800/60' : 'bg-white border-slate-300 shadow-sm'
-        }`}>
-          <div className="flex items-center gap-4">
-            <span className="text-xl">⚔️</span>
-            <div>
-              <h2 className={`text-sm font-extrabold ${isNight ? 'text-white' : 'text-slate-800'}`}>Wolvesville Việt Nam</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400">Ván #{gameId?.slice(0, 8)}</span>
+        }`} style={{ borderBottomColor: isNight ? 'rgba(255,179,0,0.08)' : undefined }}>
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <span className="text-lg sm:text-xl hidden sm:block">⚔️</span>
+            <div className="min-w-0">
+              <h2 className={`text-xs sm:text-sm font-extrabold truncate ${isNight ? 'text-white' : 'text-slate-800'}`}>
+                <span className="hidden sm:inline">Ma Sói </span>Việt Nam
+              </h2>
+              <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                <span className="text-[9px] sm:text-[10px] text-slate-400">#{gameId?.slice(0, 6)}</span>
                 {!isNight && phase !== 'ended' && (
-                  <span className="text-[10px] text-indigo-500 font-extrabold animate-pulse">
-                    • {players.filter(p => p.isAlive).length} người sống (Cần ≥{Math.floor(players.filter(p => p.isAlive).length / 2)} phiếu để treo cổ)
+                  <span className="text-[9px] sm:text-[10px] text-vn-gold-500 font-extrabold animate-pulse">
+                    {players.filter(p => p.isAlive).length} sống • ≥{Math.floor(players.filter(p => p.isAlive).length / 2)} phiếu
                   </span>
                 )}
               </div>
@@ -956,11 +958,11 @@ export default function GamePage() {
           <div className="flex items-center gap-4 relative">
             {/* Timer with progress bar */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className={`font-mono text-base font-extrabold px-3 py-1 rounded-lg ${
+              <div className={`font-mono text-sm sm:text-base font-extrabold px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg ${
                 timer <= 10 
-                  ? 'text-red-400 animate-pulse bg-red-500/10 border border-red-500/20' 
+                  ? 'text-vn-red-400 animate-pulse bg-vn-red-500/10 border border-vn-red-500/20' 
                   : timer <= 20
-                  ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                  ? 'text-vn-gold-400 bg-vn-gold-500/10 border border-vn-gold-500/20'
                   : isNight
                   ? 'text-slate-300 bg-slate-800/60 border border-slate-700/40'
                   : 'text-slate-800 bg-slate-200 border border-slate-300'
@@ -989,18 +991,18 @@ export default function GamePage() {
               onTouchStart={() => setShowRoleTooltip(true)}
               onTouchEnd={() => setShowRoleTooltip(false)}
               onClick={() => setShowRoleTooltip(!showRoleTooltip)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border cursor-pointer select-none transition-all duration-300 hover:scale-105 active:scale-95 shadow-md"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg border cursor-pointer select-none transition-all duration-300 hover:scale-105 active:scale-95 shadow-md"
               style={{ borderColor: roleInfo.color + '60', background: roleInfo.color + '15' }}
             >
-              <span className="text-base">{roleInfo.icon}</span>
-              <span className="text-xs font-black tracking-wide" style={{ color: roleInfo.color }}>{roleInfo.vi}</span>
+              <span className="text-sm sm:text-base">{roleInfo.icon}</span>
+              <span className="text-[10px] sm:text-xs font-black tracking-wide" style={{ color: roleInfo.color }}>{roleInfo.vi}</span>
             </div>
 
             {/* Exit/Thoát Button */}
             <button onClick={() => {
               useSocketStore.getState().leaveLobby();
               navigate('/');
-            }} className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+            }} className={`text-[10px] sm:text-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded border transition-colors hidden sm:block ${
               isNight
                 ? 'text-slate-400 hover:text-white border-slate-800 hover:border-slate-600'
                 : 'text-slate-600 hover:text-slate-900 border-slate-300 hover:border-slate-400'
@@ -1052,8 +1054,78 @@ export default function GamePage() {
           </div>
         </header>
 
-        {/* TASK 2: Player Grid (arranged in 4 columns with background forest trees) */}
-        <div className="flex-1 p-2 sm:p-4 lg:p-6 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 gap-2 sm:gap-4 pb-24 scrollbar-hide z-0">
+        {/* MOBILE INFO TAB — Role details & game events (mobile only) */}
+        {mobileTab === 'info' && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 lg:hidden scrollbar-hide pb-20">
+            {/* Role card */}
+            <div className="rounded-2xl p-4 space-y-3" style={{ background: roleInfo.color + '12', border: `2px solid ${roleInfo.color}40` }}>
+              <div className="flex items-center gap-3">
+                <span className="text-4xl filter drop-shadow-sm">{roleInfo.icon}</span>
+                <div>
+                  <h3 className="font-black text-lg text-white">{roleInfo.vi}</h3>
+                  <span className="text-[10px] uppercase font-black tracking-widest opacity-60" style={{ color: roleInfo.color }}>
+                    {myRole?.slug}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                  myRole?.team === 'werewolf' 
+                    ? 'bg-vn-red-500/20 text-vn-red-300 border border-vn-red-500/30' 
+                    : myRole?.team === 'solo'
+                    ? 'bg-vn-gold-500/20 text-vn-gold-400 border border-vn-gold-500/30'
+                    : 'bg-vn-jade-500/20 text-vn-jade-300 border border-vn-jade-500/30'
+                }`}>
+                  {myRole?.team === 'werewolf' ? '🔴 Phe Sói' : myRole?.team === 'solo' ? '🟡 Phe Độc Lập' : '🟢 Phe Dân Làng'}
+                </span>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                  ✨ Hào quang: {roleInfo.aura || 'Thiện'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">{roleInfo.desc}</p>
+            </div>
+
+            {/* Game status */}
+            <div className="rounded-2xl p-4 bg-dark-800/60 space-y-2" style={{ border: '1px solid rgba(255,179,0,0.1)' }}>
+              <h4 className="text-xs font-black text-vn-gold-400 uppercase tracking-wider">⚔️ Trạng Thái</h4>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="flex justify-between"><span className="text-slate-400">Vòng</span><span className="font-bold text-white">{round}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Phase</span><span className="font-bold" style={{ color: phase === 'night' ? '#6366f1' : phase === 'vote' ? '#e53935' : '#26a69a' }}>{phase}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Sống</span><span className="font-bold text-vn-jade-400">{players.filter(p => p.isAlive).length}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Chết</span><span className="font-bold text-vn-red-400">{players.filter(p => !p.isAlive).length}</span></div>
+              </div>
+            </div>
+
+            {/* Seer results */}
+            {seerResults.length > 0 && (
+              <div className="rounded-2xl p-4 bg-purple-950/30 space-y-2" style={{ border: '1px solid rgba(168,85,247,0.2)' }}>
+                <h4 className="text-xs font-black text-purple-400 uppercase tracking-wider">🔮 Kết Quả Soi</h4>
+                {seerResults.map((s, i) => (
+                  <div key={i} className="text-[11px] flex items-center gap-2 py-1 border-b border-purple-500/10 last:border-0">
+                    <span className="font-bold text-white">{s.targetUsername}</span>
+                    <span className="text-purple-300">{s.aura === 'evil' ? '🔴 Ác' : s.roleSlug ? (ROLE_DETAILS[s.roleSlug]?.icon + ' ' + ROLE_DETAILS[s.roleSlug]?.vi) : '🟢 Thiện'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Event history */}
+            <div className="rounded-2xl p-4 bg-dark-800/40 space-y-2" style={{ border: '1px solid rgba(255,179,0,0.08)' }}>
+              <h4 className="text-xs font-black text-vn-gold-400/70 uppercase tracking-wider">📜 Lịch Sử</h4>
+              {gameEvents.length === 0 ? (
+                <p className="text-[10px] text-slate-500 italic">Chưa có sự kiện nào.</p>
+              ) : gameEvents.slice(-15).map((evt, i) => (
+                <div key={i} className="text-[10px] font-bold flex items-center gap-1.5 py-1">
+                  {evt.icon && <span>{evt.icon}</span>}
+                  <span className="text-slate-300 flex-1">{evt.content}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Player Grid — optimized for mobile */}
+        <div className={`flex-1 p-1.5 sm:p-4 lg:p-6 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-3 lg:gap-4 pb-20 sm:pb-24 scrollbar-hide z-0 content-start ${mobileTab === 'info' ? 'hidden' : ''}`}>
           {sortedPlayers.map((p) => {
             const isMe = p.userId === user?.id
             const isWolf = wolfTeam.find(w => w.userId === p.userId)
@@ -1128,7 +1200,7 @@ export default function GamePage() {
                 key={p.userId}
                 layout
                 onClick={handlePlayerClick}
-                className={`relative rounded-2xl overflow-hidden aspect-video border transition-all duration-300 ${
+                className={`relative rounded-xl sm:rounded-2xl overflow-hidden aspect-[4/5] sm:aspect-video border transition-all duration-300 ${
                   !p.isAlive 
                     ? 'border-slate-900 bg-slate-950/60 shadow-inner' 
                     : isMe
@@ -1152,10 +1224,10 @@ export default function GamePage() {
                 </div>
 
                 {/* Card Header Info */}
-                <div className={`absolute top-2.5 left-2 px-2.5 py-0.5 rounded-full text-[10px] font-black z-10 ${
-                  isMe ? 'bg-indigo-600 text-white shadow-sm' : 'bg-black/40 text-slate-200'
+                <div className={`absolute top-1 sm:top-2.5 left-1 sm:left-2 px-1.5 sm:px-2.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black z-10 ${
+                  isMe ? 'bg-vn-gold-600 text-white shadow-sm' : 'bg-black/40 text-slate-200'
                 }`}>
-                  {p.seatNumber} {p.username} {isMe && '(Bạn)'}
+                  {p.seatNumber} <span className="hidden sm:inline">{p.username}</span><span className="sm:hidden">{p.username?.slice(0,4)}</span> {isMe && <span className="hidden sm:inline">(Bạn)</span>}{isMe && <span className="sm:hidden">★</span>}
                 </div>
 
                 {/* Revealed Mayor Crown Overlay */}
@@ -1166,12 +1238,12 @@ export default function GamePage() {
                 )}
 
                 {/* Card Avatar / Gravestone (Task 2) */}
-                <div className="absolute inset-0 flex items-center justify-center pt-2">
+                <div className="absolute inset-0 flex items-center justify-center pt-3 sm:pt-2">
                   <PlayerAvatar username={p.username} roleSlug={p.roleSlug || (isMe ? myRole?.slug : (revealed?.roleSlug || ''))} isAlive={p.isAlive} avatarId={shuffledAvatars[(p.seatNumber - 1) % 12]} />
                 </div>
 
                 {/* Role / Team overlays / Jailed handcuffs */}
-                <div className="absolute bottom-2 left-2 flex gap-1 z-10">
+                <div className="absolute bottom-1 sm:bottom-2 left-1 sm:left-2 flex gap-0.5 sm:gap-1 z-10 flex-wrap max-w-[90%]">
                   {!p.isAlive && (
                     <span className="text-[9px] bg-red-950/70 border border-red-500/20 text-red-400 font-extrabold px-1.5 py-0.5 rounded shadow">
                       💀 R.I.P
@@ -1723,7 +1795,7 @@ export default function GamePage() {
         </div>
 
         {/* Floating action buttons at the bottom center of the player grid (as in Image 2 & 3) */}
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 z-40">
+        <div className="absolute bottom-16 sm:bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-2 sm:gap-4 z-40">
           
           {/* Witch / Arsonist / Active Skills during Night */}
           {phase === 'night' && nightPrompt?.actions && !isJailedAtNight ? (
@@ -2005,24 +2077,34 @@ export default function GamePage() {
         </AnimatePresence>
       </main>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-14 bg-slate-900 border-t border-slate-700 flex z-50 pb-safe">
+      {/* MOBILE BOTTOM NAVIGATION BAR — Enhanced 3-tab */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-[56px] flex z-50" style={{ background: 'linear-gradient(180deg, rgba(10,8,18,0.95), rgba(10,8,18,0.98))', borderTop: '1px solid rgba(255,179,0,0.12)' }}>
         <button 
           onClick={() => setMobileTab('board')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${mobileTab === 'board' ? 'text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all ${mobileTab === 'board' ? 'text-vn-gold-400 font-extrabold scale-105' : 'text-slate-500 hover:text-slate-300'}`}
         >
-          <span className="text-xl leading-none">🎮</span>
-          <span className="text-[10px] uppercase tracking-wider">Bàn Chơi</span>
+          <span className="text-lg leading-none">🎮</span>
+          <span className="text-[9px] uppercase tracking-wider font-bold">Bàn Chơi</span>
+          {mobileTab === 'board' && <div className="w-6 h-[2px] rounded-full mt-0.5" style={{ background: 'linear-gradient(90deg, #e53935, #ffb300)' }} />}
         </button>
         <button 
           onClick={() => setMobileTab('chat')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative ${mobileTab === 'chat' ? 'text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all relative ${mobileTab === 'chat' ? 'text-vn-gold-400 font-extrabold scale-105' : 'text-slate-500 hover:text-slate-300'}`}
         >
-          <span className="text-xl leading-none">💬</span>
-          <span className="text-[10px] uppercase tracking-wider">Trò Chuyện</span>
-          {messages.length > 0 && mobileTab === 'board' && (
-            <span className="absolute top-2 right-[25%] w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
+          <span className="text-lg leading-none">💬</span>
+          <span className="text-[9px] uppercase tracking-wider font-bold">Chat</span>
+          {mobileTab === 'chat' && <div className="w-6 h-[2px] rounded-full mt-0.5" style={{ background: 'linear-gradient(90deg, #e53935, #ffb300)' }} />}
+          {messages.length > 0 && mobileTab !== 'chat' && (
+            <span className="absolute top-1.5 right-[22%] w-2 h-2 bg-vn-red-500 rounded-full animate-ping" />
           )}
+        </button>
+        <button 
+          onClick={() => setMobileTab('info')}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all ${mobileTab === 'info' ? 'text-vn-gold-400 font-extrabold scale-105' : 'text-slate-500 hover:text-slate-300'}`}
+        >
+          <span className="text-lg leading-none">{roleInfo.icon}</span>
+          <span className="text-[9px] uppercase tracking-wider font-bold">Vai Trò</span>
+          {mobileTab === 'info' && <div className="w-6 h-[2px] rounded-full mt-0.5" style={{ background: 'linear-gradient(90deg, #e53935, #ffb300)' }} />}
         </button>
       </div>
 

@@ -4,6 +4,7 @@
 
 /* ============================================================
    WOLVESVILLE VN — Global Styles
+   Vietnamese Heritage × Modern Gaming Design System
    ============================================================ */
 
 @layer base {
@@ -20,8 +21,8 @@
   body {
     @apply bg-dark-950 text-white font-sans antialiased;
     background-image: 
-      radial-gradient(ellipse at top, rgba(124,58,237,0.15) 0%, transparent 50%),
-      radial-gradient(ellipse at bottom right, rgba(244,63,94,0.08) 0%, transparent 50%);
+      radial-gradient(ellipse at top, rgba(229,57,53,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(255,179,0,0.05) 0%, transparent 50%);
     min-height: 100vh;
   }
 
@@ -29,92 +30,147 @@
     width: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #110b25;
+    background: #12101e;
   }
   ::-webkit-scrollbar-thumb {
-    background: #5b21b6;
+    background: linear-gradient(180deg, #c62828, #ffb300);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #7c3aed;
+    background: linear-gradient(180deg, #e53935, #ffd54f);
   }
 
   ::selection {
-    background: rgba(124, 58, 237, 0.4);
-    color: white;
+    background: rgba(229, 57, 53, 0.35);
+    color: #ffd54f;
   }
 }
 
 @layer components {
-  /* === BUTTONS === */
+  /* === BUTTONS — Vietnamese Gold Accent === */
   .btn-primary {
-    @apply bg-wolf-500 hover:bg-wolf-400 text-white font-semibold py-3 px-6 rounded-xl
-           transition-all duration-200 shadow-wolf hover:shadow-glow-wolf
+    @apply text-white font-bold py-3 px-6 rounded-xl
+           transition-all duration-200
            hover:-translate-y-0.5 active:translate-y-0 active:scale-95
            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0;
+    background: linear-gradient(135deg, #c62828 0%, #e53935 50%, #ff6f00 100%);
+    box-shadow: 0 4px 20px rgba(229,57,53,0.35), 0 0 0 1px rgba(255,179,0,0.15);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 6px 30px rgba(229,57,53,0.5), 0 0 0 1px rgba(255,179,0,0.3);
   }
 
   .btn-danger {
-    @apply bg-blood-600 hover:bg-blood-500 text-white font-semibold py-3 px-6 rounded-xl
-           transition-all duration-200 shadow-blood hover:-translate-y-0.5 active:scale-95;
+    @apply text-white font-bold py-3 px-6 rounded-xl
+           transition-all duration-200 hover:-translate-y-0.5 active:scale-95;
+    background: #a51c1c;
+    box-shadow: 0 4px 20px rgba(198,40,40,0.35);
+  }
+  .btn-danger:hover {
+    background: #c62828;
   }
 
   .btn-ghost {
-    @apply border border-wolf-700 hover:border-wolf-500 hover:bg-wolf-500/10 text-wolf-300
-           font-semibold py-3 px-6 rounded-xl transition-all duration-200;
+    @apply font-bold py-3 px-6 rounded-xl transition-all duration-200;
+    border: 1px solid rgba(255,179,0,0.3);
+    color: #ffd54f;
+  }
+  .btn-ghost:hover {
+    border-color: rgba(255,179,0,0.6);
+    background: rgba(255,179,0,0.1);
   }
 
-  /* === CARD === */
+  /* === CARD — Glass with Vietnamese gold trim === */
   .card {
-    @apply bg-dark-800/60 backdrop-blur-sm border border-wolf-700/30 rounded-2xl
+    @apply bg-dark-800/60 backdrop-blur-sm rounded-2xl
            shadow-lg transition-all duration-300;
+    border: 1px solid rgba(255,179,0,0.1);
   }
 
   .card-hover {
-    @apply card hover:border-wolf-500/60 hover:shadow-wolf hover:-translate-y-1;
+    @apply bg-dark-800/60 backdrop-blur-sm rounded-2xl
+           shadow-lg transition-all duration-300 hover:-translate-y-1;
+    border: 1px solid rgba(255,179,0,0.25);
+  }
+  .card-hover:hover {
+    box-shadow: 0 8px 30px rgba(255,179,0,0.12), 0 0 0 1px rgba(255,179,0,0.2);
   }
 
-  /* === INPUT === */
+  /* === INPUT — Warm dark with gold focus === */
   .input-field {
-    @apply w-full bg-dark-700/50 border border-dark-600 focus:border-wolf-500
-           text-white placeholder-gray-500 rounded-xl px-4 py-3
-           outline-none transition-all duration-200
-           focus:ring-2 focus:ring-wolf-500/30 focus:bg-dark-700;
+    @apply w-full bg-dark-700/50 text-white placeholder-gray-500 rounded-xl px-4 py-3
+           outline-none transition-all duration-200;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .input-field:focus {
+    border-color: rgba(255,179,0,0.5);
+    box-shadow: 0 0 0 3px rgba(255,179,0,0.1);
+    background: rgba(26,21,48,0.8);
   }
 
-  /* === BADGE === */
+  /* === BADGE — Team colors === */
   .badge-village {
-    @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-3 py-1 text-sm font-medium;
+    @apply rounded-full px-3 py-1 text-sm font-medium;
+    background: rgba(0,150,136,0.15);
+    color: #4db6ac;
+    border: 1px solid rgba(0,150,136,0.3);
   }
   .badge-wolf {
-    @apply bg-blood-500/20 text-blood-400 border border-blood-500/30 rounded-full px-3 py-1 text-sm font-medium;
+    @apply rounded-full px-3 py-1 text-sm font-medium;
+    background: rgba(229,57,53,0.15);
+    color: #f99a9a;
+    border: 1px solid rgba(229,57,53,0.3);
   }
   .badge-solo {
-    @apply bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-3 py-1 text-sm font-medium;
+    @apply rounded-full px-3 py-1 text-sm font-medium;
+    background: rgba(255,179,0,0.15);
+    color: #ffd54f;
+    border: 1px solid rgba(255,179,0,0.3);
   }
 
-  /* === GLASS PANEL === */
+  /* === GLASS PANEL — Vietnamese warm glass === */
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+    @apply bg-white/5 backdrop-blur-md rounded-2xl;
+    border: 1px solid rgba(255,179,0,0.08);
   }
 
-  /* === AVATAR === */
+  /* === AVATAR — Gold ring === */
   .avatar {
-    @apply w-12 h-12 rounded-full bg-wolf-700 border-2 border-wolf-500
-           flex items-center justify-center font-bold text-lg text-white;
+    @apply w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white;
+    background: linear-gradient(135deg, #c62828, #7c3aed);
+    border: 2px solid rgba(255,179,0,0.5);
+    box-shadow: 0 0 12px rgba(255,179,0,0.2);
+  }
+
+  /* === VIETNAMESE ORNAMENT DIVIDER === */
+  .vn-divider {
+    @apply h-px w-full;
+    background: linear-gradient(90deg, transparent, rgba(255,179,0,0.4), rgba(229,57,53,0.3), rgba(255,179,0,0.4), transparent);
+  }
+
+  /* === VIETNAMESE BORDER ACCENT === */
+  .vn-border-accent {
+    border-image: linear-gradient(90deg, rgba(255,179,0,0.3), rgba(229,57,53,0.2), rgba(255,179,0,0.3)) 1;
   }
 }
 
 @layer utilities {
   .text-gradient {
-    background: linear-gradient(135deg, #a875ff, #f43f5e);
+    background: linear-gradient(135deg, #e53935, #ffb300);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-gold {
-    background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706);
+    background: linear-gradient(135deg, #ffd54f, #ffb300, #ff8f00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-vn {
+    background: linear-gradient(135deg, #e53935, #ffb300, #26a69a);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -135,5 +191,20 @@
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(12px); }
     to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Vietnamese Lotus spinner */
+  .vn-loader {
+    @apply w-12 h-12 relative;
+  }
+  .vn-loader::before {
+    content: '🪷';
+    @apply absolute inset-0 flex items-center justify-center text-3xl;
+    animation: lotusSpin 2s ease-in-out infinite;
+  }
+  @keyframes lotusSpin {
+    0% { transform: scale(0.8) rotate(0deg); opacity: 0.6; }
+    50% { transform: scale(1.1) rotate(180deg); opacity: 1; }
+    100% { transform: scale(0.8) rotate(360deg); opacity: 0.6; }
   }
 }

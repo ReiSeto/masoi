@@ -16,10 +16,11 @@ function ProtectedRoute({ children }) {
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(180deg, #0a0812, #1a0e14, #12101e)' }}>
         <div className="text-center">
-          <div className="text-6xl animate-bounce mb-4">🐺</div>
-          <p className="text-wolf-300 text-lg font-medium">Đang tải...</p>
+          <div className="text-6xl animate-bounce mb-4 filter drop-shadow-[0_0_20px_rgba(229,57,53,0.3)]">🐺</div>
+          <p className="text-vn-gold-400/60 text-lg font-medium tracking-wider">Đang tải...</p>
+          <div className="mt-3 w-32 h-[2px] mx-auto" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,179,0,0.4), transparent)' }} />
         </div>
       </div>
     )
