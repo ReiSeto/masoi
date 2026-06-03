@@ -16,7 +16,7 @@
  * 12. Medium giao tiếp người chết (medium_revive)
  */
 
-const NIGHT_DURATION = 15; // giây — khớp với Wolvesville gốc (30s)
+const NIGHT_DURATION = 30; // giây — khớp với Wolvesville gốc (30s)
 
 /**
  * Xử lý tất cả hành động đêm và trả về kết quả

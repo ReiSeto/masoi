@@ -1,0 +1,75 @@
+# ============================================================
+# RENDER.COM — Blueprint (Infrastructure as Code)
+# Deploy: https://render.com/deploy
+# ============================================================
+
+databases:
+  - name: wolvesville-mysql
+    databaseName: wolvesville_vn
+    plan: free
+    ipAllowList: []
+
+services:
+  # ========== BACKEND API + WebSocket ==========
+  - type: web
+    name: wolvesville-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --only=production
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DB_DIALECT
+        value: mysql
+      - key: DB_HOST
+        fromDatabase:
+          name: wolvesville-mysql
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: wolvesville-mysql
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: wolvesville-mysql
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: wolvesville-mysql
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: wolvesville-mysql
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: REDIS_HOST
+        fromService:
+          name: wolvesville-redis
+          type: redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          name: wolvesville-redis
+          type: redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          name: wolvesville-redis
+          type: redis
+          property: password
+      - key: FRONTEND_URL
+        value: https://wolvesville-vn.vercel.app
+
+  # ========== REDIS ==========
+  - type: redis
+    name: wolvesville-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru

@@ -9,7 +9,7 @@
  * - Kiểm tra Hunter (nếu Hunter bị vote → được bắn 1 người)
  */
 
-const VOTE_DURATION = 15; // giây — khớp với Wolvesville gốc (30s)
+const VOTE_DURATION = 30; // giây — khớp với Wolvesville gốc (30s)
 
 /**
  * Giải quyết phiếu bầu
