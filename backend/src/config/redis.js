@@ -3,16 +3,32 @@ const Redis = require('ioredis');
 let client = null;
 
 async function initRedis() {
-  client = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT) || 6379,
-    password: process.env.REDIS_PASSWORD || 'redis123',
-    retryStrategy: (times) => {
-      const delay = Math.min(times * 50, 2000);
-      return delay;
-    },
-    maxRetriesPerRequest: 3,
-  });
+  // Render.com cung cấp REDIS_URL dạng connection string
+  // Ưu tiên REDIS_URL > host/port riêng lẻ
+  if (process.env.REDIS_URL) {
+    client = new Redis(process.env.REDIS_URL, {
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      maxRetriesPerRequest: 3,
+    });
+  } else {
+    const redisConfig = {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT) || 6379,
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      maxRetriesPerRequest: 3,
+    };
+    // Chỉ set password nếu có (Render internal Redis không cần auth)
+    if (process.env.REDIS_PASSWORD) {
+      redisConfig.password = process.env.REDIS_PASSWORD;
+    }
+    client = new Redis(redisConfig);
+  }
 
   client.on('connect', () => {
     console.log('🔴 Redis connected');

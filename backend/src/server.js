@@ -1,6 +1,10 @@
 const path = require('path');
+const fs = require('fs');
+// Chỉ load .env khi dev local (Render.com inject env vars trực tiếp)
 const envPath = path.resolve(__dirname, '../../.env');
-require('dotenv').config({ path: envPath });
+if (fs.existsSync(envPath)) {
+  require('dotenv').config({ path: envPath });
+}
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -103,13 +107,11 @@ async function startServer() {
   try {
     // Kết nối Database
     await sequelize.authenticate();
-    console.log('✅ Kết nối MySQL thành công');
+    console.log('✅ Kết nối Database thành công');
 
-    // Sync models (development only)
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: false });
-      console.log('✅ Sequelize models synced');
-    }
+    // Sync models — tạo tables nếu chưa tồn tại (safe, không xóa data)
+    await sequelize.sync({ force: false, alter: false });
+    console.log('✅ Sequelize models synced');
 
     // Kết nối Redis
     await initRedis();
