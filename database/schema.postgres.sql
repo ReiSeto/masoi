@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS users (
     role            VARCHAR(20) NOT NULL DEFAULT 'player' CHECK (role IN ('player', 'moderator', 'admin')),
     games_played    INTEGER NOT NULL DEFAULT 0 CHECK (games_played >= 0),
     games_won       INTEGER NOT NULL DEFAULT 0 CHECK (games_won >= 0),
+    reputation      INTEGER NOT NULL DEFAULT 100 CHECK (reputation >= 0 AND reputation <= 100),
+    last_reputation_recovery TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_online     TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
