@@ -439,6 +439,12 @@ export default function GamePage() {
         }
         toast.success(data.message, { icon: '🔥', duration: 5000 })
       },
+      'game:lover_notify': (data) => {
+        const partnerRoleInfo = ROLE_DETAILS[data.partnerRole] || { vi: data.partnerRole, icon: '🎭' }
+        const msg = `💘 Bạn đã được ghép đôi với ${data.partnerUsername}! Vai trò: ${partnerRoleInfo.icon} ${partnerRoleInfo.vi}`
+        setGameEvents(prev => [...prev, { type: 'lover', content: msg, icon: '💘' }])
+        toast.success(msg, { icon: '💘', duration: 8000 })
+      },
       'game:players_update': (data) => {
         if (data.players) setPlayers(data.players)
       },
@@ -798,6 +804,8 @@ export default function GamePage() {
                         ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
                         : evt.type === 'seer'
                         ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                        : evt.type === 'lover'
+                        ? 'bg-pink-500/10 text-pink-400 border border-pink-500/20'
                         : 'bg-black/10 text-slate-400 border border-slate-700/40'
                     }`}>
                       {evt.icon && <span className="text-xs">{evt.icon}</span>}
@@ -871,6 +879,8 @@ export default function GamePage() {
                     ? 'bg-orange-500/10 text-orange-700 border border-orange-500/20'
                     : evt.type === 'seer'
                     ? 'bg-purple-500/10 text-purple-700 border border-purple-500/20'
+                    : evt.type === 'lover'
+                    ? 'bg-pink-500/10 text-pink-600 border border-pink-500/20'
                     : 'bg-black/5 text-slate-600 border border-slate-300/40'
                 }`}>
                   {evt.icon && <span className="text-xs">{evt.icon}</span>}

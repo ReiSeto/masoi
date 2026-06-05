@@ -55,7 +55,7 @@ function generateDawnMessages(nightResults, round, lobbyRules = {}) {
           icon = '⚔️';
           break;
         case 'arson':
-          deathMsg = `🔥 ${death.username} đã bị thiêu cháy bởi Hỏa Tặc!`;
+          deathMsg = `🔥 Một người chơi đã bị thiêu cháy bởi Hỏa Tặc!`;
           icon = '🔥';
           break;
         case 'broken_heart':

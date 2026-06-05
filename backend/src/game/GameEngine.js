@@ -363,6 +363,37 @@ class GameEngine {
     // Giải quyết đêm
     const nightResults = await resolveNight(this.gameState);
     
+    // Gửi thông báo cho cặp đôi yêu nhau (chỉ đêm 1) — hiển thị role của đối phương
+    if (nightResults.lovers && nightResults.lovers.length > 0) {
+      for (const lover of nightResults.lovers) {
+        const allPlayers = await this.gameState.getAllPlayers();
+        const p1 = allPlayers[lover.player1Id];
+        const p2 = allPlayers[lover.player2Id];
+        if (p1 && p2) {
+          // Gửi cho player 1 biết role của player 2
+          const sock1 = this.players.find(p => p.userId?.toString() === lover.player1Id?.toString())?.socket_id;
+          if (sock1) {
+            this.io.to(sock1).emit('game:lover_notify', {
+              partnerId: lover.player2Id,
+              partnerUsername: p2.username,
+              partnerRole: p2.roleSlug,
+              message: `💘 Bạn đã được ghép đôi với ${p2.username}! Vai trò của họ là: ${p2.roleSlug}. Hãy bảo vệ nhau!`,
+            });
+          }
+          // Gửi cho player 2 biết role của player 1
+          const sock2 = this.players.find(p => p.userId?.toString() === lover.player2Id?.toString())?.socket_id;
+          if (sock2) {
+            this.io.to(sock2).emit('game:lover_notify', {
+              partnerId: lover.player1Id,
+              partnerUsername: p1.username,
+              partnerRole: p1.roleSlug,
+              message: `💘 Bạn đã được ghép đôi với ${p1.username}! Vai trò của họ là: ${p1.roleSlug}. Hãy bảo vệ nhau!`,
+            });
+          }
+        }
+      }
+    }
+
     // Kiểm tra thắng thua sau đêm
     const winCheck = await this.checkWinCondition();
     if (winCheck) {
@@ -1026,19 +1057,17 @@ class GameEngine {
       const deadPlayers = Object.keys(updatedPlayers).filter(id => !updatedPlayers[id].isAlive);
       await this.gameState.update({ alivePlayers, deadPlayers });
 
-      const targetUsernames = ignitedTargets.map(t => t.username).join(', ');
       const targetIds = ignitedTargets.map(t => t.userId);
       const targetCount = ignitedTargets.length;
 
-      // Phát thông tin phóng hỏa tức thì giống như bắn súng
+      // Phát thông tin phóng hỏa tức thì — KHÔNG hiển thị tên Hỏa Tặc và nạn nhân (ẩn danh)
       this.emitToGame('game:arsonist_ignite_result', {
         arsonistId: playerId,
-        arsonistUsername: arsonist.username,
         targetIds,
         roleReveals,
         message: targetCount > 0
-          ? `🔥 Hỏa Tặc ${arsonist.username} đã kích hoạt châm lửa thiêu cháy ngay lập tức: ${targetUsernames}!`
-          : `🔥 Hỏa Tặc ${arsonist.username} châm lửa đốt nhưng không ai bị thiêu cháy!`,
+          ? `🔥 Hỏa Tặc đã châm lửa! ${targetCount} người bị thiêu cháy!`
+          : `🔥 Hỏa Tặc châm lửa đốt nhưng không ai bị thiêu cháy!`,
       });
 
       // Kiểm tra điều kiện thắng
