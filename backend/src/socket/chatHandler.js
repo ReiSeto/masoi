@@ -130,6 +130,37 @@ function chatHandler(io, socket) {
         return;
       }
 
+      // --- Người chết gửi tin nhắn trên kênh public → chuyển thành tin nhắn âm hồn (ghost) ---
+      if (channel === 'public' && !p.isAlive) {
+        const message = await GameMessage.create({
+          game_id: gameId,
+          sender_id: null,
+          channel: 'dead',
+          content: cleanContent,
+          is_system: false,
+        });
+
+        // Gửi tin nhắn dạng ghost (nghiêng) chỉ cho người chết + ngoại cảm (ban đêm)
+        for (const [pid, player] of Object.entries(players)) {
+          const canSeeGhost = !player.isAlive || 
+            (player.roleSlug === 'medium' && player.isAlive && state.phase === 'night');
+          if (canSeeGhost) {
+            const targetSocket = game.players.find(gp => gp.userId?.toString() === pid?.toString())?.socket_id;
+            if (targetSocket) {
+              io.to(targetSocket).emit('chat:message', {
+                id: message.id,
+                sender: { userId, username },
+                channel: 'public',
+                content: cleanContent,
+                timestamp: message.created_at,
+                isGhost: true, // Đánh dấu tin nhắn từ người chết → frontend hiển thị chữ nghiêng
+              });
+            }
+          }
+        }
+        return;
+      }
+
       // Lưu vào DB
       const message = await GameMessage.create({
         game_id: gameId,

@@ -801,10 +801,24 @@ class GameEngine {
 
     // Dân thắng: sói chết hết + solo killers chết hết
     if (aliveWolves.length === 0 && aliveSoloKillers.length === 0) {
+      // Kiểm tra Cupid có thắng cùng dân làng không
+      let cupidAlsoWins = false;
+      let cupidUsername = null;
+      for (const [pid, p] of Object.entries(players)) {
+        if (p.roleSlug === 'cupid') {
+          cupidAlsoWins = true;
+          cupidUsername = p.username;
+          break;
+        }
+      }
+
       return {
         winningTeam: 'village',
         winnerRoleSlug: null,
-        reason: '🏘️ Phe Dân Làng thắng! Tất cả mối đe dọa đã bị tiêu diệt!',
+        cupidAlsoWins,
+        reason: cupidAlsoWins
+          ? `🏘️💘 Phe Dân Làng thắng! Cupid (${cupidUsername}) cũng giành chiến thắng cùng dân làng!`
+          : '🏘️ Phe Dân Làng thắng! Tất cả mối đe dọa đã bị tiêu diệt!',
       };
     }
 
@@ -870,6 +884,7 @@ class GameEngine {
     this.emitToGame('game:ended', {
       winningTeam: winData.winningTeam,
       winnerRoleSlug: winData.winnerRoleSlug,
+      cupidAlsoWins: winData.cupidAlsoWins || false,
       reason: winData.reason,
       roleReveal,
     });

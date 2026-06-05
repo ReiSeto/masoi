@@ -827,14 +827,23 @@ export default function GamePage() {
                 </div>
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 font-medium">
                   {messages.filter(m => !m.channel || m.channel === chatChannel).map((m, i) => (
-                    <div key={m.id || i} className="text-xs">
+                    <div key={m.id || i} className={`text-xs ${m.isGhost ? 'opacity-70' : ''}`}>
                       {m.sender ? (
-                        <>
-                          <span className="font-black text-indigo-300">
-                            {m.sender.seatNumber ? `${m.sender.seatNumber} ` : ''}{m.sender.username}:
-                          </span>
-                          <span className="ml-1 text-slate-200">{m.content}</span>
-                        </>
+                        m.isGhost ? (
+                          <>
+                            <span className="font-bold text-purple-400/80 italic">
+                              👻 {m.sender.seatNumber ? `${m.sender.seatNumber} ` : ''}{m.sender.username}:
+                            </span>
+                            <span className="ml-1 text-slate-400 italic">{m.content}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-black text-indigo-300">
+                              {m.sender.seatNumber ? `${m.sender.seatNumber} ` : ''}{m.sender.username}:
+                            </span>
+                            <span className="ml-1 text-slate-200">{m.content}</span>
+                          </>
+                        )
                       ) : (
                         <span className="text-slate-500 italic">{m.content}</span>
                       )}
@@ -888,14 +897,23 @@ export default function GamePage() {
             {/* Day Chat list */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2.5 scrollbar-hide">
               {messages.filter(m => !m.channel || m.channel === chatChannel).map((m, i) => (
-                <div key={m.id || i} className="text-xs leading-relaxed">
+                <div key={m.id || i} className={`text-xs leading-relaxed ${m.isGhost ? 'opacity-70' : ''}`}>
                   {m.sender ? (
-                    <>
-                      <span className="font-extrabold text-slate-800">
-                        {m.sender.seatNumber ? `${m.sender.seatNumber} ` : ''}{m.sender.username}:
-                      </span>
-                      <span className="ml-1 text-slate-600 font-bold">{m.content}</span>
-                    </>
+                    m.isGhost ? (
+                      <>
+                        <span className="font-bold text-purple-500/80 italic">
+                          👻 {m.sender.seatNumber ? `${m.sender.seatNumber} ` : ''}{m.sender.username}:
+                        </span>
+                        <span className="ml-1 text-slate-500 italic font-medium">{m.content}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-extrabold text-slate-800">
+                          {m.sender.seatNumber ? `${m.sender.seatNumber} ` : ''}{m.sender.username}:
+                        </span>
+                        <span className="ml-1 text-slate-600 font-bold">{m.content}</span>
+                      </>
+                    )
                   ) : (
                     <span className="text-slate-400 italic font-bold">{m.content}</span>
                   )}
