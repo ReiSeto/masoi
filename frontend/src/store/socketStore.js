@@ -29,8 +29,9 @@ export const useSocketStore = create((set, get) => ({
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     })
 
     socket.on('connect', () => {
@@ -43,9 +44,64 @@ export const useSocketStore = create((set, get) => ({
       console.log('🔌 Socket disconnected:', reason)
     })
 
-    socket.on('connect_error', (err) => {
-      console.error('Socket error:', err.message)
+    // Token refresh on connect error — prevents mid-game kicks
+    socket.on('connect_error', async (err) => {
+      console.error('Socket connect_error:', err.message)
+      if (err.message?.includes('Token') || err.message?.includes('token') || err.message?.includes('hết hạn')) {
+        console.log('🔄 Token expired — attempting refresh before reconnect...')
+        try {
+          const { useAuthStore } = await import('./authStore')
+          const authStore = useAuthStore.getState()
+          // Refresh token via HTTP (uses cookie-based refresh_token)
+          const API = import.meta.env.VITE_API_URL || '/api/v1'
+          const res = await fetch(`${API}/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          if (res.ok) {
+            const data = await res.json()
+            const newToken = data.data?.access_token
+            if (newToken) {
+              authStore.setToken(newToken)
+              // Update socket auth with new token for next reconnect attempt
+              socket.auth = { token: newToken }
+              console.log('✅ Token refreshed — socket will reconnect with new token')
+              // Socket.IO will auto-retry with the updated auth
+            }
+          } else {
+            console.error('❌ Token refresh failed — user may need to re-login')
+          }
+        } catch (refreshErr) {
+          console.error('❌ Token refresh error:', refreshErr.message)
+        }
+      }
     })
+
+    // Periodic token refresh every 10 minutes to prevent expiry during long games
+    const tokenRefreshInterval = setInterval(async () => {
+      if (!socket.connected) return
+      try {
+        const API = import.meta.env.VITE_API_URL || '/api/v1'
+        const res = await fetch(`${API}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          const newToken = data.data?.access_token
+          if (newToken) {
+            const { useAuthStore } = await import('./authStore')
+            useAuthStore.getState().setToken(newToken)
+            socket.auth = { token: newToken }
+            console.log('🔄 Token proactively refreshed (every 10m)')
+          }
+        }
+      } catch {}
+    }, 10 * 60 * 1000) // Every 10 minutes
+
+    socket._tokenRefreshInterval = tokenRefreshInterval
 
     // Lobby events
     socket.on('lobby:joined', ({ game_id, room_code, host_id }) => {
@@ -98,6 +154,7 @@ export const useSocketStore = create((set, get) => ({
   disconnect: () => {
     const { socket } = get()
     if (socket) {
+      if (socket._tokenRefreshInterval) clearInterval(socket._tokenRefreshInterval)
       socket.disconnect()
       set({ socket: null, connected: false, gameId: null, roomCode: null, lobbyPlayers: [], messages: [] })
     }

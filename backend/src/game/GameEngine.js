@@ -74,6 +74,18 @@ class GameEngine {
     // 1. Gán vai trò
     const assignments = assignRoles(this.players, this.roleConfig);
 
+    // 1.5. Gán target cho Headhunter (chọn ngẫu nhiên 1 người phe village, không phải chính mình)
+    const headhunterEntries = Object.entries(assignments).filter(([, d]) => d.roleSlug === 'headhunter');
+    for (const [hhId, hhData] of headhunterEntries) {
+      const villageTargets = Object.entries(assignments).filter(
+        ([id, d]) => id !== hhId && d.team === 'village'
+      );
+      if (villageTargets.length > 0) {
+        const randomTarget = villageTargets[Math.floor(Math.random() * villageTargets.length)];
+        hhData.roleData = { ...hhData.roleData, target: randomTarget[0], targetUsername: randomTarget[1].username, targetSeat: randomTarget[1].seatNumber, won: false };
+      }
+    }
+
     // 2. Khởi tạo game state trong Redis
     const playerIds = Object.keys(assignments);
     await this.gameState.init({ playerIds });
@@ -612,6 +624,7 @@ class GameEngine {
       return;
     }
 
+
     const nextPhase = async () => {
       const state = await this.gameState.get();
       await this.gameState.update({ round: state.round + 1 });
@@ -871,6 +884,7 @@ class GameEngine {
       };
     }
 
+
     return null; // Chưa có ai thắng
   }
 
@@ -912,10 +926,30 @@ class GameEngine {
       seatNumber: p.seatNumber,
     }));
 
+    // Kiểm tra Headhunter co-win: HH thắng cùng phe Sói khi:
+    // 1. Phe Sói thắng (winningTeam === 'werewolf')
+    // 2. Target của HH đã chết (bất kỳ lý do)
+    // 3. HH thắng kể cả khi HH đã chết
+    let headhunterAlsoWins = false;
+    let headhunterNames = [];
+    if (winData.winningTeam === 'werewolf') {
+      for (const [pid, p] of Object.entries(allPlayers)) {
+        if (p.roleSlug === 'headhunter' && p.roleData?.target) {
+          const target = allPlayers[p.roleData.target];
+          if (target && !target.isAlive) {
+            headhunterAlsoWins = true;
+            headhunterNames.push(p.username);
+          }
+        }
+      }
+    }
+
     this.emitToGame('game:ended', {
       winningTeam: winData.winningTeam,
       winnerRoleSlug: winData.winnerRoleSlug,
       cupidAlsoWins: winData.cupidAlsoWins || false,
+      headhunterAlsoWins,
+      headhunterNames,
       reason: winData.reason,
       roleReveal,
     });

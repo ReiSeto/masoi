@@ -149,15 +149,23 @@ export default function GamePage() {
   const [speechBubbles, setSpeechBubbles] = useState({})
 
   const chatEndRef = useRef(null)
-  const timerRef = useRef(null)
+  const timerEndAtRef = useRef(null)
 
-  // Timer countdown
+  // Server-authoritative timer countdown using requestAnimationFrame
+  // This prevents desync on mobile where setInterval gets throttled in background tabs
   useEffect(() => {
-    if (timer > 0) {
-      timerRef.current = setInterval(() => setTimer(t => Math.max(0, t - 1)), 1000)
-      return () => clearInterval(timerRef.current)
+    if (!timerEndAtRef.current) return
+    let rafId
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((timerEndAtRef.current - Date.now()) / 1000))
+      setTimer(remaining)
+      if (remaining > 0) {
+        rafId = requestAnimationFrame(tick)
+      }
     }
-  }, [timer])
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [timerEndAtRef.current])
 
   // Scroll chat to bottom
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, gameEvents])
@@ -233,6 +241,12 @@ export default function GamePage() {
         setRoleData(data.roleData || {})
         const details = ROLE_DETAILS[data.role.slug] || { vi: data.role.slug, icon: '🎭' }
         toast.success(`Vai trò của bạn: ${details.vi}`, { duration: 5000, icon: details.icon })
+        // Headhunter: show target notification
+        if (data.role.slug === 'headhunter' && data.roleData?.target) {
+          setTimeout(() => {
+            toast(`🎯 Mục tiêu của bạn: ${data.roleData.targetUsername} (Ghế #${data.roleData.targetSeat})\nHãy tìm cách để dân làng treo cổ mục tiêu!`, { icon: '🎯', duration: 10000 })
+          }, 2000)
+        }
       },
       'game:wolf_team': (data) => setWolfTeam(data.wolves),
       'game:phase_change': (data) => {
@@ -253,6 +267,8 @@ export default function GamePage() {
         setPhase(data.phase)
         setRound(data.round)
         const dur = data.duration || 0
+        // Set server-authoritative timer endpoint
+        timerEndAtRef.current = Date.now() + dur * 1000
         setTimer(dur)
         setMaxTimer(dur)
         setSelectedTarget(null)
@@ -281,6 +297,8 @@ export default function GamePage() {
         }
       },
       'game:timer': (data) => {
+        // Use server's authoritative endAt timestamp to prevent mobile desync
+        timerEndAtRef.current = data.endAt
         const remaining = Math.max(0, Math.ceil((data.endAt - Date.now()) / 1000))
         setTimer(remaining)
         setMaxTimer(data.duration || remaining)
@@ -1774,6 +1792,21 @@ export default function GamePage() {
                         </div>
                       )}
 
+                      {/* Headhunter persistent target marker — always visible on target card */}
+                      {myRole?.slug === 'headhunter' && !isSelected && p.userId?.toString() === roleData?.target?.toString() && p.isAlive && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="absolute -top-1 -right-1 z-30"
+                        >
+                          <motion.span
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ repeat: Infinity, duration: 2 }}
+                            className="text-lg filter drop-shadow-[0_0_6px_rgba(249,115,22,0.8)]"
+                          >🎯</motion.span>
+                        </motion.div>
+                      )}
+
                       {/* Medium (Ngoại Cảm) - Glowing blue ghost spirits floating */}
                       {myRole?.slug === 'medium' && !p.isAlive && isSelected && (
                         <div className="relative w-full h-full flex flex-col items-center justify-center bg-blue-900/10 border-2 border-blue-400/80 rounded-2xl shadow-[inset_0_0_20px_rgba(96,165,250,0.3)] overflow-hidden">
@@ -2080,20 +2113,36 @@ export default function GamePage() {
                   <p className="text-xs text-slate-400 mt-1 uppercase font-black tracking-widest">
                     Phe thắng: {gameResult.winningTeam === 'village' ? 'Dân Làng' : gameResult.winningTeam === 'werewolf' ? 'Bầy Sói' : gameResult.winningTeam === 'draw' ? 'Hòa Nhau' : 'Độc Lập'}
                   </p>
+                  {/* Headhunter co-win notification */}
+                  {gameResult.headhunterAlsoWins && (
+                    <motion.p 
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}
+                      className="text-xs text-orange-400 mt-2 font-black bg-orange-500/10 border border-orange-500/20 rounded-lg px-3 py-1.5 inline-block"
+                    >
+                      🎯 Săn Đầu Người ({gameResult.headhunterNames?.join(', ')}) thắng cùng 🐺 Phe Sói! Mục tiêu đã bị tiêu diệt!
+                    </motion.p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-left max-h-60 overflow-y-auto p-2 border border-slate-800/80 rounded-2xl bg-black/15">
-                  {roleReveal.map(r => (
-                    <div key={r.userId} className={`flex items-center gap-2 p-2.5 rounded-xl text-xs bg-slate-900/50 ${r.isAlive ? 'border border-slate-800' : 'opacity-50 grayscale'}`}>
-                      <span>{ROLE_DETAILS[r.roleSlug]?.icon || '❓'}</span>
-                      <div>
-                        <div className="font-extrabold text-white truncate max-w-[100px]">{r.username}</div>
-                        <div className="text-[10px] font-black" style={{ color: ROLE_DETAILS[r.roleSlug]?.color }}>
-                          {ROLE_DETAILS[r.roleSlug]?.vi || r.roleSlug}
+                  {roleReveal.map(r => {
+                    const isHeadhunterWinner = gameResult.headhunterAlsoWins && r.roleSlug === 'headhunter'
+                    return (
+                      <div key={r.userId} className={`flex items-center gap-2 p-2.5 rounded-xl text-xs bg-slate-900/50 ${r.isAlive ? 'border border-slate-800' : 'opacity-50 grayscale'} ${isHeadhunterWinner ? '!opacity-100 !grayscale-0 border-orange-500/50 ring-1 ring-orange-500/30' : ''}`}>
+                        <span>{ROLE_DETAILS[r.roleSlug]?.icon || '❓'}</span>
+                        <div>
+                          <div className="font-extrabold text-white truncate max-w-[100px]">
+                            {r.username}
+                            {isHeadhunterWinner && <span className="ml-1 text-orange-400">🎯</span>}
+                          </div>
+                          <div className="text-[10px] font-black" style={{ color: ROLE_DETAILS[r.roleSlug]?.color }}>
+                            {ROLE_DETAILS[r.roleSlug]?.vi || r.roleSlug}
+                            {isHeadhunterWinner && <span className="text-orange-400 ml-1">— THẮNG!</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <button onClick={() => navigate('/')} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-black rounded-xl transition-all shadow-lg shadow-indigo-600/25">
