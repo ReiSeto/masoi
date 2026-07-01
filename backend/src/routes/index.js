@@ -5,12 +5,14 @@ const authRoutes = require('./authRoutes');
 const userRoutes = require('./userRoutes');
 const roleRoutes = require('./roleRoutes');
 const gameRoutes = require('./gameRoutes');
+const questRoutes = require('./questRoutes');
 
 // Mount routes
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/roles', roleRoutes);
 router.use('/games', gameRoutes);
+router.use('/quests', questRoutes);
 
 // API Info
 router.get('/', (req, res) => {

@@ -1049,9 +1049,64 @@ class GameEngine {
         });
 
         console.log(`📊 Stats saved: ${p.username} | win=${isWinner} | elo=${newElo}`);
+
+        // Cập nhật tiến trình nhiệm vụ hàng ngày
+        await this.updateQuestProgress(playerId, p, isWinner, survived);
       } catch (err) {
         console.error(`⚠️ Stats update failed for ${p.username}:`, err.message);
       }
+    }
+  }
+
+  // ============================================================
+  // UPDATE DAILY QUEST PROGRESS
+  // ============================================================
+  async updateQuestProgress(playerId, playerData, isWinner, survived) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Map quest_id → increment value based on this game's result
+    const updates = {
+      games_played_today: 1,
+      wins_today: isWinner ? 1 : 0,
+      survived_today: survived,
+      wolf_games_today: playerData.team === 'werewolf' ? 1 : 0,
+      seer_games_today: playerData.roleSlug === 'seer' ? 1 : 0,
+      village_wins_today: (playerData.team === 'village' && isWinner) ? 1 : 0,
+    };
+
+    // Map track_field → quest_id(s)
+    const FIELD_TO_QUEST = {
+      games_played_today: ['play_1_game', 'play_3_games'],
+      wins_today: ['win_1_game'],
+      survived_today: ['survive_1_game'],
+      wolf_games_today: ['play_as_wolf'],
+      seer_games_today: ['play_as_seer'],
+      village_wins_today: ['win_as_village'],
+    };
+
+    try {
+      for (const [field, increment] of Object.entries(updates)) {
+        if (increment === 0) continue;
+        const questIds = FIELD_TO_QUEST[field] || [];
+        for (const questId of questIds) {
+          // QUEST_DEFINITIONS target lookup
+          const targets = { play_1_game: 1, play_3_games: 3, win_1_game: 1, survive_1_game: 1, play_as_wolf: 1, play_as_seer: 1, win_as_village: 1 };
+          const maxTarget = targets[questId] || 99;
+
+          await sequelize.query(
+            `INSERT INTO user_daily_quests (id, user_id, quest_date, quest_id, progress, claimed)
+             VALUES (UUID(), ?, ?, ?, ?, 0)
+             ON DUPLICATE KEY UPDATE
+               progress = LEAST(progress + ?, ?)`,
+            {
+              replacements: [playerId, today, questId, Math.min(increment, maxTarget), increment, maxTarget],
+              type: sequelize.QueryTypes.INSERT,
+            }
+          );
+        }
+      }
+    } catch (err) {
+      console.error(`⚠️ Quest progress update failed for ${playerData.username}:`, err.message);
     }
   }
 

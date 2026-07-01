@@ -404,6 +404,23 @@ INSERT IGNORE INTO items (id, slug, name_vi, description_vi, category, price_coi
 (UUID(), 'emoji_wolf',          'Emoji Sói',              'Emoji hình con sói',                   'emoji', 300, 0, 'rare', true);
 
 -- ============================================================
+-- BẢNG: user_daily_quests (Nhiệm vụ hàng ngày)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_daily_quests (
+    id              CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    user_id         CHAR(36) NOT NULL,
+    quest_date      DATE NOT NULL,
+    quest_id        VARCHAR(50) NOT NULL,
+    progress        INTEGER NOT NULL DEFAULT 0,
+    claimed         TINYINT(1) NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_user_quest_date (user_id, quest_date, quest_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_daily_quests_user_date ON user_daily_quests(user_id, quest_date);
+
+-- ============================================================
 -- SEED DATA: Default Test Account
 -- ============================================================
 INSERT IGNORE INTO users (id, username, email, password_hash, coins, roses, gems, level, xp, role) VALUES

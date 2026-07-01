@@ -5,6 +5,17 @@ import toast from 'react-hot-toast'
 import { useAuthStore, api } from '../store/authStore'
 import { useSocketStore } from '../store/socketStore'
 
+// SVG coin icon — renders on all platforms unlike emoji
+function CoinIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="10" cy="10" r="9" fill="#F59E0B" stroke="#D97706" strokeWidth="1.5"/>
+      <circle cx="10" cy="10" r="6.5" fill="#FBBF24" stroke="#F59E0B" strokeWidth="1"/>
+      <text x="10" y="14" textAnchor="middle" fontSize="8" fontWeight="900" fill="#92400E" fontFamily="serif">$</text>
+    </svg>
+  )
+}
+
 // ROLES data for display
 const ROLES_DISPLAY = [
   { slug: 'villager', vi: 'Dân Làng', icon: '🏘️', team: 'village', desc: 'Không có kỹ năng đặc biệt' },
@@ -32,7 +43,7 @@ const teamColor = { village: '#26a69a', werewolf: '#e53935', solo: '#ffb300' }
 const teamLabel = { village: 'Dân Làng', werewolf: 'Phe Sói', solo: 'Độc Lập' }
 
 export default function LobbyPage() {
-  const { user, logout, token } = useAuthStore()
+  const { user, logout, token, updateUser } = useAuthStore()
   const { socket, connect, disconnect, connected, joinLobby, leaveLobby, startGame, addBot, removeBot, lobbyPlayers, roomCode, gameId, hostId } = useSocketStore()
   const [roomInput, setRoomInput] = useState('')
   const [view, setView] = useState('home') // home | room
@@ -40,9 +51,44 @@ export default function LobbyPage() {
   const [showBotConfirm, setShowBotConfirm] = useState(false)
   const [showRoleConfig, setShowRoleConfig] = useState(false)
   const [roleConfig, setRoleConfig] = useState({})
+  const [quests, setQuests] = useState([])
+  const [questsLoading, setQuestsLoading] = useState(false)
+  const [claimingId, setClaimingId] = useState(null)
   const navigate = useNavigate()
   
   const isHost = hostId === user?.id
+
+  // Fetch daily quests
+  useEffect(() => {
+    if (!token) return
+    setQuestsLoading(true)
+    api.get('/quests/daily')
+      .then(res => setQuests(res.data.data.quests || []))
+      .catch(() => {})
+      .finally(() => setQuestsLoading(false))
+  }, [token])
+
+  async function handleClaimQuest(questId) {
+    if (claimingId) return
+    setClaimingId(questId)
+    try {
+      const res = await api.post(`/quests/${questId}/claim`)
+      const { reward, user: updatedUser } = res.data.data
+      // Update currency in store
+      updateUser({ coins: updatedUser.coins, gems: updatedUser.gems, roses: updatedUser.roses })
+      // Mark claimed in local state
+      setQuests(prev => prev.map(q => q.id === questId ? { ...q, claimed: true } : q))
+      const parts = []
+      if (reward.coins > 0) parts.push(`🪙 +${reward.coins} xu`)
+      if (reward.gems > 0) parts.push(`💎 +${reward.gems} gem`)
+      if (reward.roses > 0) parts.push(`🌹 +${reward.roses} hoa`)
+      toast.success(`🎉 Nhận thưởng: ${parts.join(' · ')}`, { duration: 4000 })
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể nhận thưởng')
+    } finally {
+      setClaimingId(null)
+    }
+  }
 
   function handleRoleClick(slug) {
     setRoleConfig(prev => {
@@ -290,7 +336,7 @@ export default function LobbyPage() {
           {/* Currency */}
           <div className="flex items-center gap-4 bg-dark-800/70 backdrop-blur-sm rounded-full px-5 py-2" style={{ border: '1px solid rgba(255,179,0,0.12)' }}>
             <div className="flex items-center gap-1.5">
-              <span className="text-yellow-400 text-sm">🪙</span>
+              <CoinIcon size={16} />
               <span className="font-bold text-sm text-white">{user?.coins?.toLocaleString() || 500}</span>
             </div>
             <div className="w-px h-4 bg-white/20" />
@@ -300,7 +346,7 @@ export default function LobbyPage() {
             </div>
             <div className="w-px h-4 bg-white/20" />
             <div className="flex items-center gap-1.5">
-              <span className="text-pink-400 text-sm">💎</span>
+              <span className="text-blue-300 text-sm">💎</span>
               <span className="font-bold text-sm text-white">{user?.gems || 0}</span>
             </div>
           </div>
@@ -465,29 +511,75 @@ export default function LobbyPage() {
             ))}
           </div>
 
-          {/* Challenge Card */}
+          {/* Challenge Card — Live Quest System */}
           <div className="bg-dark-800/60 backdrop-blur-sm rounded-2xl p-4" style={{ border: '1px solid rgba(255,179,0,0.1)' }}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Thử Thách</h3>
-              <span className="text-[10px] text-gray-500">Hàng ngày</span>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">📋 Nhiệm Vụ Hàng Ngày</h3>
+              <span className="text-[10px] text-gray-500">
+                {quests.filter(q => q.claimed).length}/{quests.length} hoàn thành
+              </span>
             </div>
-            {[
-              { task: 'Chơi 1 ván game', progress: 0, max: 1, reward: '🪙 50', icon: '🎮' },
-              { task: 'Thắng 1 ván', progress: 0, max: 1, reward: '🪙 100', icon: '🏆' },
-              { task: 'Dùng Tiên Tri', progress: 0, max: 1, reward: '💎 5', icon: '🔮' },
-            ].map((q, i) => (
-              <div key={i} className="mb-3 last:mb-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm">{q.icon}</span>
-                  <span className="text-xs text-gray-300 flex-1">{q.task}</span>
-                  <span className="text-[10px] text-yellow-400">{q.reward}</span>
-                </div>
-                <div className="h-1.5 bg-dark-600 rounded-full overflow-hidden" style={{ border: '1px solid rgba(255,179,0,0.05)' }}>
-                  <div className="h-full bg-gradient-to-r from-vn-red-500 to-vn-gold-500 rounded-full transition-all" style={{ width: `${(q.progress / q.max) * 100}%` }} />
-                </div>
-                <div className="text-right text-[10px] text-gray-500 mt-0.5">{q.progress}/{q.max}</div>
+            {questsLoading ? (
+              <div className="text-center py-4 text-gray-500 text-xs">Đang tải...</div>
+            ) : quests.length === 0 ? (
+              <div className="text-center py-4 text-gray-500 text-xs">Không có nhiệm vụ hôm nay</div>
+            ) : (
+              <div className="space-y-3">
+                {quests.map((q) => {
+                  const pct = Math.min((q.progress / q.target) * 100, 100)
+                  const isComplete = q.progress >= q.target
+                  const rewardParts = [
+                    q.reward_coins > 0 && `🪙${q.reward_coins}`,
+                    q.reward_gems > 0 && `💎${q.reward_gems}`,
+                    q.reward_roses > 0 && `🌹${q.reward_roses}`,
+                  ].filter(Boolean).join(' ')
+
+                  return (
+                    <div key={q.id} className={`rounded-xl p-2.5 transition-all ${
+                      q.claimed
+                        ? 'bg-white/5 opacity-50'
+                        : isComplete
+                        ? 'bg-emerald-900/30 border border-emerald-500/30'
+                        : 'bg-white/5'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-sm">{q.icon}</span>
+                        <span className={`text-xs flex-1 font-medium ${
+                          q.claimed ? 'line-through text-gray-500' : 'text-gray-200'
+                        }`}>{q.title}</span>
+                        <span className="text-[10px] font-bold text-amber-400 whitespace-nowrap">{rewardParts}</span>
+                      </div>
+                      <div className="h-1.5 bg-dark-600/80 rounded-full overflow-hidden mb-1.5">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.6, ease: 'easeOut' }}
+                          className={`h-full rounded-full ${
+                            q.claimed ? 'bg-gray-500' : isComplete ? 'bg-emerald-500' : 'bg-gradient-to-r from-vn-red-500 to-vn-gold-500'
+                          }`}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-gray-500">{q.progress}/{q.target}</span>
+                        {q.claimed ? (
+                          <span className="text-[10px] text-emerald-500 font-bold">✅ Đã nhận</span>
+                        ) : isComplete ? (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleClaimQuest(q.id)}
+                            disabled={claimingId === q.id}
+                            className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white disabled:opacity-60 transition-colors"
+                          >
+                            {claimingId === q.id ? '...' : '🎁 Nhận'}
+                          </motion.button>
+                        ) : null}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
+            )}
           </div>
         </aside>
       </div>
