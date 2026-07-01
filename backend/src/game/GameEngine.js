@@ -49,6 +49,8 @@ class GameEngine {
     this.players = players; // [{userId, username, socket_id}]
     this.roleConfig = roleConfig;
     this.lobbyRules = lobbyRules; // {forceVote, anonymousVote, clearChatDaily, hideRoleOnDeath, lastWill}
+    // Track whether this game used the default role config (for quest validation)
+    this.isDefaultConfig = !roleConfig || Object.keys(roleConfig).length === 0;
     this.gameState = new GameState(gameId);
     this.timer = null;
     this.isRunning = false;
@@ -970,10 +972,48 @@ class GameEngine {
   }
 
   // ============================================================
+  // XP LEVEL SYSTEM — Arithmetic progression
+  // Level N→N+1 requires: 500 + (N-1)*200 XP
+  // (Lv1→2: 500, Lv2→3: 700, Lv3→4: 900, Lv4→5: 1100, ...)
+  // ============================================================
+  static xpForLevel(level) {
+    return 500 + (level - 1) * 200;
+  }
+
+  // Check and apply level-up after XP gain
+  static async checkAndLevelUp(userId) {
+    try {
+      const user = await User.findByPk(userId, { attributes: ['id', 'xp', 'level', 'xp_next_level'] });
+      if (!user) return;
+      let { xp, level } = user;
+      let didLevel = false;
+      while (xp >= GameEngine.xpForLevel(level)) {
+        xp -= GameEngine.xpForLevel(level);
+        level += 1;
+        didLevel = true;
+      }
+      if (didLevel) {
+        await User.update(
+          { level, xp, xp_next_level: GameEngine.xpForLevel(level) },
+          { where: { id: userId } }
+        );
+        console.log(`🎉 Level up! user:${userId} → Lv.${level}`);
+      }
+    } catch (e) {
+      console.error('⚠️ checkAndLevelUp error:', e.message);
+    }
+  }
+
+  // ============================================================
   // SAVE GAME STATS TO DATABASE
   // ============================================================
   async saveGameStats(allPlayers, winData, headhunterAlsoWins) {
     const ELO_K = 32; // K-factor cho Elo
+
+    // Kiểm tra có phải game đủ 12 người không (bot + human)
+    // Chỉ tính stats cho game đủ 12 người theo đúng cấu hình
+    const totalPlayerCount = Object.keys(allPlayers).length;
+    const isFullGame = totalPlayerCount >= 12;
 
     for (const [playerId, p] of Object.entries(allPlayers)) {
       // Bỏ qua bot (userId bắt đầu bằng 'bot-')
@@ -986,72 +1026,86 @@ class GameEngine {
       if (headhunterAlsoWins && p.roleSlug === 'headhunter') isWinner = true;
 
       const survived = p.isAlive ? 1 : 0;
-      // Tính số kill từ roleData (wolf_kill, sk_kill, etc.)
       const kills = p.roleData?.kills || 0;
-      // Tính số saves (doctor)
       const saves = p.roleData?.saveCount || 0;
-      // Correct checks (seer check đúng evil)
       const correctChecks = p.roleData?.correctChecks || 0;
-      // Bị vote out
       const votedOut = (!p.isAlive && p.deathCause === 'voted') ? 1 : 0;
 
+      // Coins reward
+      const coinsEarned = isWinner ? 100 : 30;
+
       try {
-        // findOrCreate user_stats nếu chưa tồn tại
-        const [stats] = await UserStats.findOrCreate({
-          where: { user_id: playerId },
-          defaults: {
-            user_id: playerId,
-            total_games: 0, total_wins: 0, total_losses: 0,
-            win_rate: 0.00, elo_rating: 1000, elo_peak: 1000,
-          }
-        });
+        if (isFullGame) {
+          // Chỉ cập nhật stats đầy đủ với game đủ 12 người
+          const [stats] = await UserStats.findOrCreate({
+            where: { user_id: playerId },
+            defaults: {
+              user_id: playerId,
+              total_games: 0, total_wins: 0, total_losses: 0,
+              win_rate: 0.00, elo_rating: 1000, elo_peak: 1000,
+            }
+          });
 
-        const newTotal = stats.total_games + 1;
-        const newWins = isWinner ? stats.total_wins + 1 : stats.total_wins;
-        const newLosses = !isWinner ? stats.total_losses + 1 : stats.total_losses;
-        const newWinRate = newTotal > 0 ? ((newWins / newTotal) * 100).toFixed(2) : 0;
+          const newTotal = stats.total_games + 1;
+          const newWins = isWinner ? stats.total_wins + 1 : stats.total_wins;
+          const newLosses = !isWinner ? stats.total_losses + 1 : stats.total_losses;
+          const newWinRate = newTotal > 0 ? ((newWins / newTotal) * 100).toFixed(2) : 0;
 
-        // Elo update (đơn giản: thắng +K*(1-expected), thua -K*(expected))
-        const currentElo = stats.elo_rating || 1000;
-        const expected = 1 / (1 + Math.pow(10, (1000 - currentElo) / 400));
-        const score = isWinner ? 1 : 0;
-        const newElo = Math.max(800, Math.round(currentElo + ELO_K * (score - expected)));
-        const newPeak = Math.max(stats.elo_peak || 1000, newElo);
+          // Elo update
+          const currentElo = stats.elo_rating || 1000;
+          const expected = 1 / (1 + Math.pow(10, (1000 - currentElo) / 400));
+          const score = isWinner ? 1 : 0;
+          const newElo = Math.max(800, Math.round(currentElo + ELO_K * (score - expected)));
+          const newPeak = Math.max(stats.elo_peak || 1000, newElo);
 
-        // Phân loại theo team
-        const teamField = p.team === 'village' ? 'villager' : p.team === 'werewolf' ? 'werewolf' : 'solo';
+          const teamField = p.team === 'village' ? 'villager' : p.team === 'werewolf' ? 'werewolf' : 'solo';
 
-        await sequelize.transaction(async (t) => {
-          await stats.update({
-            total_games: newTotal,
-            total_wins: newWins,
-            total_losses: newLosses,
-            win_rate: newWinRate,
-            [`games_as_${teamField}`]: stats[`games_as_${teamField}`] + 1,
-            [`wins_as_${teamField}`]: isWinner ? stats[`wins_as_${teamField}`] + 1 : stats[`wins_as_${teamField}`],
-            total_kills: stats.total_kills + kills,
-            total_saves: stats.total_saves + saves,
-            total_correct_checks: stats.total_correct_checks + correctChecks,
-            times_voted_out: stats.times_voted_out + votedOut,
-            times_survived: stats.times_survived + survived,
-            elo_rating: newElo,
-            elo_peak: newPeak,
-          }, { transaction: t });
+          await sequelize.transaction(async (t) => {
+            await stats.update({
+              total_games: newTotal,
+              total_wins: newWins,
+              total_losses: newLosses,
+              win_rate: newWinRate,
+              [`games_as_${teamField}`]: stats[`games_as_${teamField}`] + 1,
+              [`wins_as_${teamField}`]: isWinner ? stats[`wins_as_${teamField}`] + 1 : stats[`wins_as_${teamField}`],
+              total_kills: stats.total_kills + kills,
+              total_saves: stats.total_saves + saves,
+              total_correct_checks: stats.total_correct_checks + correctChecks,
+              times_voted_out: stats.times_voted_out + votedOut,
+              times_survived: stats.times_survived + survived,
+              elo_rating: newElo,
+              elo_peak: newPeak,
+            }, { transaction: t });
 
+            await User.update(
+              {
+                games_played: sequelize.literal('games_played + 1'),
+                ...(isWinner ? { games_won: sequelize.literal('games_won + 1') } : {}),
+                xp: sequelize.literal(`xp + ${isWinner ? 150 : 50}`),
+                coins: sequelize.literal(`coins + ${coinsEarned}`),
+              },
+              { where: { id: playerId }, transaction: t }
+            );
+          });
+
+          console.log(`📊 Stats saved (full game): ${p.username} | win=${isWinner} | elo=${newElo} | coins+${coinsEarned}`);
+        } else {
+          // Game không đủ 12 người — chỉ award coins, không đếm stats/elo/games_played
           await User.update(
-            {
-              games_played: sequelize.literal('games_played + 1'),
-              ...(isWinner ? { games_won: sequelize.literal('games_won + 1') } : {}),
-              xp: sequelize.literal(`xp + ${isWinner ? 150 : 50}`),
-            },
-            { where: { id: playerId }, transaction: t }
+            { coins: sequelize.literal(`coins + ${coinsEarned}`) },
+            { where: { id: playerId } }
           );
-        });
-
-        console.log(`📊 Stats saved: ${p.username} | win=${isWinner} | elo=${newElo}`);
+          console.log(`📊 Partial game (${totalPlayerCount} players): ${p.username} | coins+${coinsEarned} (no stats counted)`);
+        }
 
         // Cập nhật tiến trình nhiệm vụ hàng ngày
-        await this.updateQuestProgress(playerId, p, isWinner, survived);
+        // Nhiệm vụ chỉ tiến khi: (1) game đủ 12 người, (2) dùng cấu hình vai trò mặc định
+        await this.updateQuestProgress(playerId, p, isWinner, survived, isFullGame);
+
+        // Kiểm tra và thực hiện level up sau khi XP được cộng
+        if (isFullGame) {
+          await GameEngine.checkAndLevelUp(playerId);
+        }
       } catch (err) {
         console.error(`⚠️ Stats update failed for ${p.username}:`, err.message);
       }
@@ -1061,7 +1115,16 @@ class GameEngine {
   // ============================================================
   // UPDATE DAILY QUEST PROGRESS
   // ============================================================
-  async updateQuestProgress(playerId, playerData, isWinner, survived) {
+  async updateQuestProgress(playerId, playerData, isWinner, survived, isFullGame) {
+    // Nhiệm vụ chỉ được thi khi:
+    // 1. Game có đủ 12 người (isFullGame)
+    // 2. Cấu hình vai trò mặc định (isDefaultConfig)
+    if (!isFullGame || !this.isDefaultConfig) {
+      if (!isFullGame) console.log(`⏭️ Quest skip (không đủ 12 người): ${playerData.username}`);
+      if (!this.isDefaultConfig) console.log(`⏭️ Quest skip (tùy chỉnh vai): ${playerData.username}`);
+      return;
+    }
+
     const today = new Date().toISOString().slice(0, 10);
 
     // Map quest_id → increment amount
@@ -1091,6 +1154,7 @@ class GameEngine {
           await row.update({ progress: Math.min(inc, max) });
         }
       }
+      console.log(`✅ Quest progress updated: ${playerData.username}`);
     } catch (err) {
       console.error(`⚠️ Quest progress update failed for ${playerData.username}:`, err.message);
     }

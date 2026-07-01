@@ -6,12 +6,19 @@ import { useAuthStore, api } from '../store/authStore'
 import { useSocketStore } from '../store/socketStore'
 
 // SVG coin icon — renders on all platforms unlike emoji
+// Uses path data instead of <text> to avoid font rendering issues on PC
 function CoinIcon({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="10" cy="10" r="9" fill="#F59E0B" stroke="#D97706" strokeWidth="1.5"/>
-      <circle cx="10" cy="10" r="6.5" fill="#FBBF24" stroke="#F59E0B" strokeWidth="1"/>
-      <text x="10" y="14" textAnchor="middle" fontSize="8" fontWeight="900" fill="#92400E" fontFamily="serif">$</text>
+      {/* Outer ring */}
+      <circle cx="10" cy="10" r="9" fill="#D97706" />
+      {/* Main coin body */}
+      <circle cx="10" cy="10" r="7.5" fill="#F59E0B" />
+      {/* Inner shine circle */}
+      <circle cx="10" cy="10" r="5.5" fill="#FBBF24" />
+      {/* Dollar sign — drawn as path, no font needed */}
+      <path d="M10 5.5v9M8.2 7.8c0-1 .8-1.5 1.8-1.5s1.8.5 1.8 1.3c0 .7-.4 1.1-1 1.4L10 9.3c-.7.3-1.2.8-1.2 1.6 0 .9.8 1.5 2 1.5s2-.6 2-1.5"
+        stroke="#92400E" strokeWidth="1" strokeLinecap="round" fill="none"/>
     </svg>
   )
 }
@@ -54,6 +61,7 @@ export default function LobbyPage() {
   const [quests, setQuests] = useState([])
   const [questsLoading, setQuestsLoading] = useState(false)
   const [claimingId, setClaimingId] = useState(null)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const navigate = useNavigate()
   
   const isHost = hostId === user?.id
@@ -79,7 +87,7 @@ export default function LobbyPage() {
       // Mark claimed in local state
       setQuests(prev => prev.map(q => q.id === questId ? { ...q, claimed: true } : q))
       const parts = []
-      if (reward.coins > 0) parts.push(`🪙 +${reward.coins} xu`)
+      if (reward.coins > 0) parts.push(`+${reward.coins} xu`)
       if (reward.gems > 0) parts.push(`💎 +${reward.gems} gem`)
       if (reward.roses > 0) parts.push(`🌹 +${reward.roses} hoa`)
       toast.success(`🎉 Nhận thưởng: ${parts.join(' · ')}`, { duration: 4000 })
@@ -353,9 +361,49 @@ export default function LobbyPage() {
           {/* Action buttons */}
           <button className="w-9 h-9 rounded-full bg-dark-800/70 border border-white/10 flex items-center justify-center text-sm hover:bg-dark-700 transition-colors">🔔</button>
           <button onClick={() => navigate(`/profile/${user?.username}`)} className="w-9 h-9 rounded-full bg-dark-800/70 border border-white/10 flex items-center justify-center text-sm hover:bg-dark-700 transition-colors">👤</button>
-          <button onClick={() => { disconnect(); logout(); navigate('/login') }} className="w-9 h-9 rounded-full bg-dark-800/70 border border-white/10 flex items-center justify-center text-sm hover:bg-dark-700 transition-colors text-gray-400 hover:text-red-400">⏻</button>
+          <button onClick={() => setShowLogoutConfirm(true)} className="w-9 h-9 rounded-full bg-dark-800/70 border border-white/10 flex items-center justify-center text-sm hover:bg-dark-700 transition-colors text-gray-400 hover:text-red-400">⏻</button>
         </div>
       </header>
+
+      {/* LOGOUT CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.7)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              className="rounded-2xl p-6 max-w-sm w-full text-center"
+              style={{ background: 'linear-gradient(135deg, #1a0e14, #12101e)', border: '1px solid rgba(229,57,53,0.3)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
+            >
+              <div className="text-4xl mb-3">⏻</div>
+              <h3 className="text-xl font-black text-white mb-2">Đăng Xuất?</h3>
+              <p className="text-gray-400 text-sm mb-6">Bạn có chắc muốn đăng xuất khỏi Ma Sói VN không?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowLogoutConfirm(false); disconnect(); logout(); navigate('/login') }}
+                  className="flex-1 py-3 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #c62828, #e53935)' }}
+                >
+                  ✅ Đăng Xuất
+                </button>
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-3 rounded-xl font-bold text-gray-300 text-sm bg-white/10 hover:bg-white/20 transition-all"
+                >
+                  Hủy
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* MAIN 3-COLUMN LAYOUT */}
       <div className="relative z-10 flex flex-col lg:flex-row min-h-[calc(100vh-64px)]">
