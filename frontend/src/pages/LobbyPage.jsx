@@ -361,7 +361,12 @@ export default function LobbyPage() {
           {/* Action buttons */}
           <button className="w-9 h-9 rounded-full bg-dark-800/70 border border-white/10 flex items-center justify-center text-sm hover:bg-dark-700 transition-colors">🔔</button>
           <button onClick={() => navigate(`/profile/${user?.username}`)} className="w-9 h-9 rounded-full bg-dark-800/70 border border-white/10 flex items-center justify-center text-sm hover:bg-dark-700 transition-colors">👤</button>
-          <button onClick={() => setShowLogoutConfirm(true)} className="w-9 h-9 rounded-full bg-dark-800/70 border border-white/10 flex items-center justify-center text-sm hover:bg-dark-700 transition-colors text-gray-400 hover:text-red-400">⏻</button>
+          <button onClick={() => setShowLogoutConfirm(true)} className="w-9 h-9 rounded-full bg-dark-800/70 border border-white/10 flex items-center justify-center hover:bg-dark-700 transition-colors text-gray-400 hover:text-red-400" title="Đăng xuất">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3v9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M18.36 5.64A9 9 0 1 1 5.64 5.64" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -382,7 +387,12 @@ export default function LobbyPage() {
               className="rounded-2xl p-6 max-w-sm w-full text-center"
               style={{ background: 'linear-gradient(135deg, #1a0e14, #12101e)', border: '1px solid rgba(229,57,53,0.3)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
             >
-              <div className="text-4xl mb-3">⏻</div>
+              <div className="flex justify-center mb-3">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 3v9" stroke="#e53935" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M18.36 5.64A9 9 0 1 1 5.64 5.64" stroke="#e53935" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                </svg>
+              </div>
               <h3 className="text-xl font-black text-white mb-2">Đăng Xuất?</h3>
               <p className="text-gray-400 text-sm mb-6">Bạn có chắc muốn đăng xuất khỏi Ma Sói VN không?</p>
               <div className="flex gap-3">
