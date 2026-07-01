@@ -1310,14 +1310,14 @@ export default function GamePage() {
                     title={`Xem hồ sơ ${p.username}`}
                   >
                     <span className="text-[8px] opacity-80">👤</span>
-                    <span className="hidden sm:inline max-w-[52px] truncate">{p.username}</span>
-                    <span className="sm:hidden max-w-[28px] truncate">{p.username?.slice(0, 4)}</span>
+                    <span className="hidden sm:inline max-w-[80px] truncate leading-none">{p.username}</span>
+                    <span className="sm:hidden max-w-[36px] truncate leading-none text-[6px]">{p.username}</span>
                   </button>
                 ) : (
                   <div className="absolute top-7 sm:top-9 left-1 sm:left-1.5 z-20 flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 rounded-md text-[7px] sm:text-[9px] font-bold bg-indigo-600/60 text-indigo-200 border border-indigo-500/30 select-none">
                     <span className="text-[8px]">⭐</span>
-                    <span className="hidden sm:inline max-w-[52px] truncate">{p.username}</span>
-                    <span className="sm:hidden">Bạn</span>
+                    <span className="hidden sm:inline max-w-[80px] truncate leading-none">{p.username}</span>
+                    <span className="sm:hidden text-[6px]">Bạn</span>
                   </div>
                 )}
 
@@ -2276,8 +2276,9 @@ export default function GamePage() {
                     )}
                   </div>
                   <button
-                    onClick={() => setPlayerProfileModal(null)}
-                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-all flex-shrink-0"
+                    onClick={(e) => { e.stopPropagation(); setPlayerProfileModal(null); }}
+                    className="w-9 h-9 rounded-full bg-white/15 hover:bg-red-500/60 flex items-center justify-center text-white transition-all flex-shrink-0 border border-white/20 hover:border-red-400/50 text-base font-black cursor-pointer"
+                    style={{ zIndex: 10, position: 'relative' }}
                   >
                     ✕
                   </button>

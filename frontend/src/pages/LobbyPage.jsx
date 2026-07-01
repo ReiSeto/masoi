@@ -587,7 +587,7 @@ export default function LobbyPage() {
                   const pct = Math.min((q.progress / q.target) * 100, 100)
                   const isComplete = q.progress >= q.target
                   const rewardParts = [
-                    q.reward_coins > 0 && `🪙${q.reward_coins}`,
+                    q.reward_coins > 0 && `+${q.reward_coins}xu`,
                     q.reward_gems > 0 && `💎${q.reward_gems}`,
                     q.reward_roses > 0 && `🌹${q.reward_roses}`,
                   ].filter(Boolean).join(' ')

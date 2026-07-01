@@ -38,10 +38,11 @@ function generateRefreshToken(user) {
 }
 
 function setRefreshTokenCookie(res, token) {
+  const isProduction = process.env.NODE_ENV === 'production';
   res.cookie('refresh_token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isProduction, // must be true for SameSite=none
+    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin Vercel→Render
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
   });
 }
@@ -242,7 +243,11 @@ async function logout(req, res, next) {
     }
 
     // Xóa refresh token cookie
-    res.clearCookie('refresh_token');
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
 
     res.json({
       success: true,

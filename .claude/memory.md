@@ -1,6 +1,6 @@
 # 🧠 MEMORY.MD — WOLVESVILLE VIỆT NAM
 > **Mục đích**: File này tóm tắt toàn bộ những gì đã được xây dựng, để Claude Code (hoặc bất kỳ AI nào) có thể tiếp tục từ đúng điểm dừng mà không cần hỏi lại từ đầu.
-> **Cập nhật lần cuối**: 2026-05-30 (Session #5 — Antigravity)
+> **Cập nhật lần cuối**: 2026-07-01 (Session #8 — Antigravity)
 
 ---
 
@@ -624,6 +624,29 @@ Win conditions:
 - [x] **E2E Testing (baocaotest.md)**: Pass toàn bộ hệ thống test 4 người, logic các vai trò mới (Seer, Thám tử, Cai ngục, Hỏa tặc, Xạ thủ, Phù thủy, Vệ sĩ).
 - [x] **Role Effects (hieuung.md)**: Implement toàn bộ hiệu ứng chiêu thức (Framer Motion). Lửa cháy Arsonist, khiên xoay Bodyguard, lazer Thám tử, cung tên Hunter.
 - [x] **UI Updates**: Vote pointer `🫵` đè hiệu ứng đêm; Fix lỗi UI (Ghost game clear, reputation system logic, tie logic).
+
+### Session #8 — 2026-07-01
+**Người thực hiện**: Antigravity (AI Assistant)
+**Thời gian**: ~1.5 giờ
+
+**Đã làm**:
+- [x] **Fix Coin Icon SVG**: Thay `<text>` tag bằng `<path>` trong SVG để render đúng trên Windows Chrome (không bị tofu box). Header coin icon giờ là hình tròn vàng đẹp.
+- [x] **Fix Power Icon**: Thay unicode `⏻` (U+23FB, không hỗ trợ Windows) bằng SVG path trong cả header button và popup.
+- [x] **Coins Award on Game End**: Thêm coins reward vào `saveGameStats()` — thắng: +100 coins, thua: +30 coins. Bug trước là coins không bao giờ được cộng sau game.
+- [x] **Stats chỉ tính game 12 người**: `saveGameStats()` kiểm tra `totalPlayerCount >= 12`. Game < 12 người chỉ award coins, không đếm vào games_played/wins/elo.
+- [x] **Quest chỉ tính config mặc định**: `updateQuestProgress()` bỏ qua nếu `!this.isDefaultConfig`. `isDefaultConfig` = true khi roleConfig trống (không tùy chỉnh).
+- [x] **Logout Confirmation Popup**: Thêm modal xác nhận trước khi đăng xuất với 2 nút: Đăng Xuất + Hủy.
+- [x] **XP Level Arithmetic Progression**: Implement `GameEngine.xpForLevel(level)` = 500 + (level-1)*200. Lv1→2: 500xp, Lv2→3: 700xp, Lv3→4: 900xp,... Tự động level up sau mỗi game (isFullGame).
+- [x] **Admin Reset Endpoints**: Thêm `POST /api/v1/users/admin/reset-stats` và `POST /api/v1/users/admin/reset-user/:userId` để reset DB về 0. Yêu cầu header `x-dev-secret: masoi-vn-reset-2026`.
+- [x] **DB Reset**: Reset toàn bộ users (coins=500, xp=0, level=1) và user_stats (elo=1000, games=0) qua MySQL.
+- [x] **MySQL Table**: Tạo bảng `user_daily_quests` thủ công trong local MySQL (Sequelize sync bị lỗi FK incompatible).
+- [x] **Deploy**: Push 2 commits lên GitHub → Vercel CLI deploy 2 lần → Production live tại https://wolvesville-vn.vercel.app.
+
+**Đã kiểm thử trên production**:
+- ✅ Coin icon hình tròn vàng (không còn tofu box)
+- ✅ Logout popup hoạt động đúng
+- ✅ Stats reset về 0 thành công qua API
+- ✅ Backend healthy tại https://wolvesville-backend.onrender.com/health
 
 ---
 

@@ -1116,7 +1116,7 @@ class GameEngine {
   // UPDATE DAILY QUEST PROGRESS
   // ============================================================
   async updateQuestProgress(playerId, playerData, isWinner, survived, isFullGame) {
-    // Nhiệm vụ chỉ được thi khi:
+    // Nhiệm vụ chỉ được tính khi:
     // 1. Game có đủ 12 người (isFullGame)
     // 2. Cấu hình vai trò mặc định (isDefaultConfig)
     if (!isFullGame || !this.isDefaultConfig) {
@@ -1125,23 +1125,55 @@ class GameEngine {
       return;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    // Use Vietnam UTC+7 date for consistent daily reset
+    const vnOffset = 7 * 60;
+    const vnTime = new Date(Date.now() + vnOffset * 60 * 1000);
+    const today = vnTime.toISOString().slice(0, 10);
 
-    // Map quest_id → increment amount
+    const role = playerData.roleSlug;
+    const team = playerData.team;
+
+    // Map roleSlug → quest_id (covers all possible role quests from pool)
+    const ROLE_TO_QUEST = {
+      villager: 'play_as_villager',
+      doctor: 'play_as_doctor',
+      seer: 'play_as_seer',
+      witch: 'play_as_witch',
+      hunter: 'play_as_hunter',
+      bodyguard: 'play_as_bodyguard',
+      gunner: 'play_as_gunner',
+      detective: 'play_as_detective',
+      mayor: 'play_as_mayor',
+      werewolf: 'play_as_wolf',
+      alpha_wolf: 'play_as_alpha_wolf',
+      wolf_seer: 'play_as_wolf', // wolf_seer counts as wolf quest
+      jester: 'play_as_jester',
+      headhunter: 'play_as_headhunter',
+      serial_killer: 'play_as_serial_killer',
+      arsonist: 'play_as_serial_killer', // fallback
+    };
+
+    const roleQuestId = ROLE_TO_QUEST[role] || null;
+
+    // Base quest increments (always apply)
     const questIncrements = [
-      { questId: 'play_1_game',    inc: 1,                             max: 1 },
-      { questId: 'play_3_games',   inc: 1,                             max: 3 },
-      { questId: 'win_1_game',     inc: isWinner ? 1 : 0,             max: 1 },
-      { questId: 'survive_1_game', inc: survived,                      max: 1 },
-      { questId: 'play_as_wolf',   inc: playerData.team === 'werewolf' ? 1 : 0, max: 1 },
-      { questId: 'play_as_seer',   inc: playerData.roleSlug === 'seer' ? 1 : 0, max: 1 },
-      { questId: 'win_as_village', inc: (playerData.team === 'village' && isWinner) ? 1 : 0, max: 1 },
+      { questId: 'play_1_game',    inc: 1,                                              max: 1 },
+      { questId: 'play_3_games',   inc: 1,                                              max: 3 },
+      { questId: 'win_1_game',     inc: isWinner ? 1 : 0,                              max: 1 },
+      { questId: 'survive_1_game', inc: survived ? 1 : 0,                              max: 1 },
+      { questId: 'win_as_village', inc: (team === 'village' && isWinner) ? 1 : 0,      max: 1 },
     ];
+
+    // Add role-specific quest increment if applicable
+    if (roleQuestId) {
+      questIncrements.push({ questId: roleQuestId, inc: 1, max: 1 });
+    }
 
     try {
       for (const { questId, inc, max } of questIncrements) {
         if (inc === 0) continue;
 
+        // Only update rows that belong to today (auto lazy-reset: old days are untouched)
         const [row, created] = await UserDailyQuest.findOrCreate({
           where: { user_id: playerId, quest_date: today, quest_id: questId },
           defaults: { user_id: playerId, quest_date: today, quest_id: questId, progress: 0, claimed: false },
@@ -1154,11 +1186,12 @@ class GameEngine {
           await row.update({ progress: Math.min(inc, max) });
         }
       }
-      console.log(`✅ Quest progress updated: ${playerData.username}`);
+      console.log(`✅ Quest progress updated: ${playerData.username} (role: ${role}, today: ${today})`);
     } catch (err) {
       console.error(`⚠️ Quest progress update failed for ${playerData.username}:`, err.message);
     }
   }
+
 
   // ============================================================
   // PLAYER ACTIONS (nhận từ socket events)
