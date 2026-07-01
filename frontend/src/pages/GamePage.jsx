@@ -1236,34 +1236,31 @@ export default function GamePage() {
                                 (phase === 'hunter_revenge' && hunterPrompt && hunterPrompt.targets.some(t => t.userId === p.userId))
 
             const handlePlayerClick = () => {
-              if (isTargetable) {
-                if (phase === 'night') {
-                  if (isMultiTargetAction) {
-                    if (selectedTargets.includes(p.userId)) {
-                      setSelectedTargets(prev => prev.filter(id => id !== p.userId))
-                    } else {
-                      if (selectedTargets.length < 2) {
-                        setSelectedTargets(prev => {
-                          const newTargets = [...prev, p.userId];
-                          if (newTargets.length === 2) {
-                            handleNightAction(newTargets.join(','));
-                          }
-                          return newTargets;
-                        })
-                      } else {
-                        toast.error('Chỉ được chọn tối đa 2 người', { icon: '⚠️' })
-                      }
-                    }
+              if (!isTargetable) return  // Card click chỉ làm game action
+              if (phase === 'night') {
+                if (isMultiTargetAction) {
+                  if (selectedTargets.includes(p.userId)) {
+                    setSelectedTargets(prev => prev.filter(id => id !== p.userId))
                   } else {
-                    handleNightAction(p.userId)
+                    if (selectedTargets.length < 2) {
+                      setSelectedTargets(prev => {
+                        const newTargets = [...prev, p.userId];
+                        if (newTargets.length === 2) {
+                          handleNightAction(newTargets.join(','));
+                        }
+                        return newTargets;
+                      })
+                    } else {
+                      toast.error('Chỉ được chọn tối đa 2 người', { icon: '⚠️' })
+                    }
                   }
-                  return
+                } else {
+                  handleNightAction(p.userId)
                 }
-                if (phase === 'vote') { handleVote(p.userId); return; }
-                if (phase === 'hunter_revenge') { handleHunterShot(p.userId); return; }
+                return
               }
-              // Không phải target → mở profile
-              if (!isMe) openPlayerProfile(p.userId, p.username)
+              if (phase === 'vote') { handleVote(p.userId); return; }
+              if (phase === 'hunter_revenge') { handleHunterShot(p.userId); return; }
             }
 
             return (
