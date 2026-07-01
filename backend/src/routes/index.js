@@ -24,6 +24,7 @@ router.get('/', (req, res) => {
       users: '/api/v1/users',
       roles: '/api/v1/roles',
       games: '/api/v1/games',
+      quests: '/api/v1/quests',
     },
   });
 });
