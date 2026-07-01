@@ -1291,25 +1291,35 @@ export default function GamePage() {
                   </svg>
                 </div>
 
-                {/* Card Header Info */}
-                <div className={`absolute top-1 sm:top-2.5 left-1 sm:left-2 px-1.5 sm:px-2.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black z-10 ${
-                  isMe ? 'bg-vn-gold-600 text-white shadow-sm' : 'bg-black/40 text-slate-200'
+                {/* Seat Number Badge — top-left circle, static */}
+                <div className={`absolute top-1.5 sm:top-2 left-1.5 sm:left-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-black z-20 shadow ${
+                  isMe ? 'bg-indigo-600 text-white ring-1 ring-indigo-400/50' : 'bg-black/70 text-slate-300 border border-white/10'
                 }`}>
-                  {p.seatNumber}{' '}
-                  {!isMe ? (
-                    <button
-                      id={`player-profile-btn-${p.userId}`}
-                      onClick={e => { e.stopPropagation(); openPlayerProfile(p.userId, p.username); }}
-                      className="hover:text-indigo-300 hover:underline transition-colors cursor-pointer"
-                      title={`Xem hồ sơ ${p.username}`}
-                    >
-                      <span className="hidden sm:inline">{p.username}</span>
-                      <span className="sm:hidden">{p.username?.slice(0,5)}</span>
-                    </button>
-                  ) : (
-                    <><span className="hidden sm:inline">{p.username}</span><span className="sm:hidden">{p.username?.slice(0,5)}</span>{' '}<span className="hidden sm:inline">(Bạn)</span><span className="sm:hidden">★</span></>
-                  )}
+                  {p.seatNumber}
                 </div>
+
+                {/* Username Profile Button — top-left below seat badge, clearly tappable */}
+                {!isMe ? (
+                  <button
+                    id={`player-profile-btn-${p.userId}`}
+                    onClick={e => { e.stopPropagation(); e.preventDefault(); openPlayerProfile(p.userId, p.username); }}
+                    onPointerDown={e => e.stopPropagation()}
+                    className={`absolute top-7 sm:top-9 left-1 sm:left-1.5 z-20 flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 rounded-md text-[7px] sm:text-[9px] font-bold transition-all duration-150 select-none cursor-pointer
+                      bg-black/50 border border-white/10 text-slate-300
+                      hover:bg-indigo-600/80 hover:text-white hover:border-indigo-400/50 hover:shadow-[0_0_6px_rgba(99,102,241,0.6)]`}
+                    title={`Xem hồ sơ ${p.username}`}
+                  >
+                    <span className="text-[8px] opacity-80">👤</span>
+                    <span className="hidden sm:inline max-w-[52px] truncate">{p.username}</span>
+                    <span className="sm:hidden max-w-[28px] truncate">{p.username?.slice(0, 4)}</span>
+                  </button>
+                ) : (
+                  <div className="absolute top-7 sm:top-9 left-1 sm:left-1.5 z-20 flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 rounded-md text-[7px] sm:text-[9px] font-bold bg-indigo-600/60 text-indigo-200 border border-indigo-500/30 select-none">
+                    <span className="text-[8px]">⭐</span>
+                    <span className="hidden sm:inline max-w-[52px] truncate">{p.username}</span>
+                    <span className="sm:hidden">Bạn</span>
+                  </div>
+                )}
 
                 {/* Revealed Mayor Crown Overlay */}
                 {p.isAlive && p.roleSlug === 'mayor' && p.roleData?.revealed && (
@@ -1323,8 +1333,8 @@ export default function GamePage() {
                   <PlayerAvatar username={p.username} roleSlug={p.roleSlug || (isMe ? myRole?.slug : (revealed?.roleSlug || ''))} isAlive={p.isAlive} avatarId={shuffledAvatars[(p.seatNumber - 1) % 12]} />
                 </div>
 
-                {/* Role / Team overlays / Jailed handcuffs */}
-                <div className="absolute bottom-1 sm:bottom-2 left-1 sm:left-2 flex gap-0.5 sm:gap-1 z-10 flex-wrap max-w-[90%]">
+                {/* Role / Team overlays / Jailed handcuffs — bottom-left, z-10 (below profile btn) */}
+                <div className="absolute bottom-1 sm:bottom-2 left-1 sm:left-2 flex gap-0.5 sm:gap-1 z-10 flex-wrap max-w-[90%] pointer-events-none">
                   {!p.isAlive && (
                     <span className="text-[9px] bg-red-950/70 border border-red-500/20 text-red-400 font-extrabold px-1.5 py-0.5 rounded shadow">
                       💀 R.I.P
