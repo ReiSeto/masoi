@@ -11,7 +11,7 @@ const { generateDawnMessages, DAY_DURATION } = require('./phases/DayPhase');
 const { DISCUSS_DURATION } = require('./phases/DiscussPhase');
 const { resolveVotes, VOTE_DURATION } = require('./phases/VotePhase');
 const { decideNightAction, decideVote, decideHunterShot, decideGunnerShot } = require('./BotBrain');
-const { User, UserStats, sequelize } = require('../models');
+const { User, UserStats, UserDailyQuest, sequelize } = require('../models');
 
 // Lưu tham chiếu tới io cho từng game
 const activeGames = new Map();
@@ -1064,45 +1064,31 @@ class GameEngine {
   async updateQuestProgress(playerId, playerData, isWinner, survived) {
     const today = new Date().toISOString().slice(0, 10);
 
-    // Map quest_id → increment value based on this game's result
-    const updates = {
-      games_played_today: 1,
-      wins_today: isWinner ? 1 : 0,
-      survived_today: survived,
-      wolf_games_today: playerData.team === 'werewolf' ? 1 : 0,
-      seer_games_today: playerData.roleSlug === 'seer' ? 1 : 0,
-      village_wins_today: (playerData.team === 'village' && isWinner) ? 1 : 0,
-    };
-
-    // Map track_field → quest_id(s)
-    const FIELD_TO_QUEST = {
-      games_played_today: ['play_1_game', 'play_3_games'],
-      wins_today: ['win_1_game'],
-      survived_today: ['survive_1_game'],
-      wolf_games_today: ['play_as_wolf'],
-      seer_games_today: ['play_as_seer'],
-      village_wins_today: ['win_as_village'],
-    };
+    // Map quest_id → increment amount
+    const questIncrements = [
+      { questId: 'play_1_game',    inc: 1,                             max: 1 },
+      { questId: 'play_3_games',   inc: 1,                             max: 3 },
+      { questId: 'win_1_game',     inc: isWinner ? 1 : 0,             max: 1 },
+      { questId: 'survive_1_game', inc: survived,                      max: 1 },
+      { questId: 'play_as_wolf',   inc: playerData.team === 'werewolf' ? 1 : 0, max: 1 },
+      { questId: 'play_as_seer',   inc: playerData.roleSlug === 'seer' ? 1 : 0, max: 1 },
+      { questId: 'win_as_village', inc: (playerData.team === 'village' && isWinner) ? 1 : 0, max: 1 },
+    ];
 
     try {
-      for (const [field, increment] of Object.entries(updates)) {
-        if (increment === 0) continue;
-        const questIds = FIELD_TO_QUEST[field] || [];
-        for (const questId of questIds) {
-          // QUEST_DEFINITIONS target lookup
-          const targets = { play_1_game: 1, play_3_games: 3, win_1_game: 1, survive_1_game: 1, play_as_wolf: 1, play_as_seer: 1, win_as_village: 1 };
-          const maxTarget = targets[questId] || 99;
+      for (const { questId, inc, max } of questIncrements) {
+        if (inc === 0) continue;
 
-          await sequelize.query(
-            `INSERT INTO user_daily_quests (id, user_id, quest_date, quest_id, progress, claimed)
-             VALUES (UUID(), ?, ?, ?, ?, 0)
-             ON DUPLICATE KEY UPDATE
-               progress = LEAST(progress + ?, ?)`,
-            {
-              replacements: [playerId, today, questId, Math.min(increment, maxTarget), increment, maxTarget],
-              type: sequelize.QueryTypes.INSERT,
-            }
-          );
+        const [row, created] = await UserDailyQuest.findOrCreate({
+          where: { user_id: playerId, quest_date: today, quest_id: questId },
+          defaults: { user_id: playerId, quest_date: today, quest_id: questId, progress: 0, claimed: false },
+        });
+
+        if (!created && !row.claimed) {
+          const newProgress = Math.min(row.progress + inc, max);
+          await row.update({ progress: newProgress });
+        } else if (created) {
+          await row.update({ progress: Math.min(inc, max) });
         }
       }
     } catch (err) {

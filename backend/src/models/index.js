@@ -106,6 +106,27 @@ const UserInventory = sequelize.define('UserInventory', {
 }, { tableName: 'user_inventory', timestamps: true, createdAt: 'acquired_at', updatedAt: false });
 
 // ============================================================
+// USER DAILY QUESTS — Nhiệm vụ hàng ngày
+// ============================================================
+const UserDailyQuest = sequelize.define('UserDailyQuest', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  user_id: { type: DataTypes.UUID, allowNull: false },
+  quest_date: { type: DataTypes.DATEONLY, allowNull: false },
+  quest_id: { type: DataTypes.STRING(50), allowNull: false },
+  progress: { type: DataTypes.INTEGER, defaultValue: 0 },
+  claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
+}, {
+  tableName: 'user_daily_quests',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: false,
+  indexes: [
+    { unique: true, fields: ['user_id', 'quest_date', 'quest_id'], name: 'uq_user_quest_date' },
+    { fields: ['user_id', 'quest_date'], name: 'idx_daily_quests_user_date' },
+  ],
+});
+
+// ============================================================
 // ASSOCIATIONS
 // ============================================================
 
@@ -139,6 +160,10 @@ GamePlayer.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Role.hasMany(GamePlayer, { foreignKey: 'role_id' });
 GamePlayer.belongsTo(Role, { foreignKey: 'role_id', as: 'role' });
 
+// UserDailyQuest associations
+User.hasMany(UserDailyQuest, { foreignKey: 'user_id', as: 'daily_quests' });
+UserDailyQuest.belongsTo(User, { foreignKey: 'user_id' });
+
 module.exports = {
   sequelize,
   User,
@@ -148,6 +173,7 @@ module.exports = {
   GameMessage,
   Item,
   UserStats,
+  UserDailyQuest,
   UserInventory,
   Notification,
   Transaction,
