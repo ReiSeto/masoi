@@ -11,6 +11,7 @@ const { generateDawnMessages, DAY_DURATION } = require('./phases/DayPhase');
 const { DISCUSS_DURATION } = require('./phases/DiscussPhase');
 const { resolveVotes, VOTE_DURATION } = require('./phases/VotePhase');
 const { decideNightAction, decideVote, decideHunterShot, decideGunnerShot } = require('./BotBrain');
+const { User, UserStats, sequelize } = require('../models');
 
 // Lưu tham chiếu tới io cho từng game
 const activeGames = new Map();
@@ -954,6 +955,11 @@ class GameEngine {
       roleReveal,
     });
 
+    // Lưu stats vào DB (không blocking game client)
+    this.saveGameStats(allPlayers, winData, headhunterAlsoWins).catch(err =>
+      console.error('⚠️ saveGameStats error (non-fatal):', err)
+    );
+
     // Cleanup sau 30 giây
     this.cleanupTimeout = setTimeout(() => {
       if (activeGames.get(this.gameId) === this) {
@@ -961,6 +967,92 @@ class GameEngine {
         this.gameState.destroy();
       }
     }, 30000);
+  }
+
+  // ============================================================
+  // SAVE GAME STATS TO DATABASE
+  // ============================================================
+  async saveGameStats(allPlayers, winData, headhunterAlsoWins) {
+    const ELO_K = 32; // K-factor cho Elo
+
+    for (const [playerId, p] of Object.entries(allPlayers)) {
+      // Bỏ qua bot (userId bắt đầu bằng 'bot-')
+      if (playerId.startsWith('bot-')) continue;
+
+      // Xác định người chơi này có thắng không
+      let isWinner = false;
+      if (winData.winningTeam === p.team) isWinner = true;
+      if (winData.winningTeam === 'solo' && winData.winnerRoleSlug === p.roleSlug) isWinner = true;
+      if (headhunterAlsoWins && p.roleSlug === 'headhunter') isWinner = true;
+
+      const survived = p.isAlive ? 1 : 0;
+      // Tính số kill từ roleData (wolf_kill, sk_kill, etc.)
+      const kills = p.roleData?.kills || 0;
+      // Tính số saves (doctor)
+      const saves = p.roleData?.saveCount || 0;
+      // Correct checks (seer check đúng evil)
+      const correctChecks = p.roleData?.correctChecks || 0;
+      // Bị vote out
+      const votedOut = (!p.isAlive && p.deathCause === 'voted') ? 1 : 0;
+
+      try {
+        // findOrCreate user_stats nếu chưa tồn tại
+        const [stats] = await UserStats.findOrCreate({
+          where: { user_id: playerId },
+          defaults: {
+            user_id: playerId,
+            total_games: 0, total_wins: 0, total_losses: 0,
+            win_rate: 0.00, elo_rating: 1000, elo_peak: 1000,
+          }
+        });
+
+        const newTotal = stats.total_games + 1;
+        const newWins = isWinner ? stats.total_wins + 1 : stats.total_wins;
+        const newLosses = !isWinner ? stats.total_losses + 1 : stats.total_losses;
+        const newWinRate = newTotal > 0 ? ((newWins / newTotal) * 100).toFixed(2) : 0;
+
+        // Elo update (đơn giản: thắng +K*(1-expected), thua -K*(expected))
+        const currentElo = stats.elo_rating || 1000;
+        const expected = 1 / (1 + Math.pow(10, (1000 - currentElo) / 400));
+        const score = isWinner ? 1 : 0;
+        const newElo = Math.max(800, Math.round(currentElo + ELO_K * (score - expected)));
+        const newPeak = Math.max(stats.elo_peak || 1000, newElo);
+
+        // Phân loại theo team
+        const teamField = p.team === 'village' ? 'villager' : p.team === 'werewolf' ? 'werewolf' : 'solo';
+
+        await sequelize.transaction(async (t) => {
+          await stats.update({
+            total_games: newTotal,
+            total_wins: newWins,
+            total_losses: newLosses,
+            win_rate: newWinRate,
+            [`games_as_${teamField}`]: stats[`games_as_${teamField}`] + 1,
+            [`wins_as_${teamField}`]: isWinner ? stats[`wins_as_${teamField}`] + 1 : stats[`wins_as_${teamField}`],
+            total_kills: stats.total_kills + kills,
+            total_saves: stats.total_saves + saves,
+            total_correct_checks: stats.total_correct_checks + correctChecks,
+            times_voted_out: stats.times_voted_out + votedOut,
+            times_survived: stats.times_survived + survived,
+            elo_rating: newElo,
+            elo_peak: newPeak,
+          }, { transaction: t });
+
+          await User.update(
+            {
+              games_played: sequelize.literal('games_played + 1'),
+              ...(isWinner ? { games_won: sequelize.literal('games_won + 1') } : {}),
+              xp: sequelize.literal(`xp + ${isWinner ? 150 : 50}`),
+            },
+            { where: { id: playerId }, transaction: t }
+          );
+        });
+
+        console.log(`📊 Stats saved: ${p.username} | win=${isWinner} | elo=${newElo}`);
+      } catch (err) {
+        console.error(`⚠️ Stats update failed for ${p.username}:`, err.message);
+      }
+    }
   }
 
   // ============================================================

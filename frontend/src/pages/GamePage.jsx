@@ -129,6 +129,9 @@ export default function GamePage() {
   const [shotTargets, setShotTargets] = useState([])
   const [executeTargets, setExecuteTargets] = useState([])
   const [mobileTab, setMobileTab] = useState('board') // 'board' or 'chat'
+  const [playerProfileModal, setPlayerProfileModal] = useState(null) // { userId, username } | null
+  const [profileData, setProfileData] = useState(null) // fetched profile
+  const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => {
     setSelectedTarget(null)
@@ -570,6 +573,24 @@ export default function GamePage() {
     setSelectedTarget(targetId)
     socket?.emit('game:hunter_shot', { target_id: targetId })
     toast.success(`Đã chọn bắn mục tiêu #${players.find(p => p.userId === targetId)?.seatNumber}`, { icon: '🏹' })
+  }
+
+  async function openPlayerProfile(userId, username) {
+    setPlayerProfileModal({ userId, username })
+    setProfileData(null)
+    setProfileLoading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/users/id/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const json = await res.json()
+      if (json.success) setProfileData(json.data.user)
+    } catch (e) {
+      console.error('Profile fetch error:', e)
+    } finally {
+      setProfileLoading(false)
+    }
   }
 
   const roleInfo = ROLE_DETAILS[myRole?.slug] || { vi: 'Chưa rõ', icon: '❓', color: '#9ca3af', desc: 'Không rõ mô tả.' }
@@ -1215,30 +1236,34 @@ export default function GamePage() {
                                 (phase === 'hunter_revenge' && hunterPrompt && hunterPrompt.targets.some(t => t.userId === p.userId))
 
             const handlePlayerClick = () => {
-              if (!isTargetable) return
-              if (phase === 'night') {
-                if (isMultiTargetAction) {
-                  if (selectedTargets.includes(p.userId)) {
-                    setSelectedTargets(prev => prev.filter(id => id !== p.userId))
-                  } else {
-                    if (selectedTargets.length < 2) {
-                      setSelectedTargets(prev => {
-                        const newTargets = [...prev, p.userId];
-                        if (newTargets.length === 2) {
-                          handleNightAction(newTargets.join(','));
-                        }
-                        return newTargets;
-                      })
+              if (isTargetable) {
+                if (phase === 'night') {
+                  if (isMultiTargetAction) {
+                    if (selectedTargets.includes(p.userId)) {
+                      setSelectedTargets(prev => prev.filter(id => id !== p.userId))
                     } else {
-                      toast.error('Chỉ được chọn tối đa 2 người', { icon: '⚠️' })
+                      if (selectedTargets.length < 2) {
+                        setSelectedTargets(prev => {
+                          const newTargets = [...prev, p.userId];
+                          if (newTargets.length === 2) {
+                            handleNightAction(newTargets.join(','));
+                          }
+                          return newTargets;
+                        })
+                      } else {
+                        toast.error('Chỉ được chọn tối đa 2 người', { icon: '⚠️' })
+                      }
                     }
+                  } else {
+                    handleNightAction(p.userId)
                   }
-                } else {
-                  handleNightAction(p.userId)
+                  return
                 }
+                if (phase === 'vote') { handleVote(p.userId); return; }
+                if (phase === 'hunter_revenge') { handleHunterShot(p.userId); return; }
               }
-              if (phase === 'vote') handleVote(p.userId)
-              if (phase === 'hunter_revenge') handleHunterShot(p.userId)
+              // Không phải target → mở profile
+              if (!isMe) openPlayerProfile(p.userId, p.username)
             }
 
             return (
@@ -1273,7 +1298,20 @@ export default function GamePage() {
                 <div className={`absolute top-1 sm:top-2.5 left-1 sm:left-2 px-1.5 sm:px-2.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black z-10 ${
                   isMe ? 'bg-vn-gold-600 text-white shadow-sm' : 'bg-black/40 text-slate-200'
                 }`}>
-                  {p.seatNumber} <span className="hidden sm:inline">{p.username}</span><span className="sm:hidden">{p.username?.slice(0,4)}</span> {isMe && <span className="hidden sm:inline">(Bạn)</span>}{isMe && <span className="sm:hidden">★</span>}
+                  {p.seatNumber}{' '}
+                  {!isMe ? (
+                    <button
+                      id={`player-profile-btn-${p.userId}`}
+                      onClick={e => { e.stopPropagation(); openPlayerProfile(p.userId, p.username); }}
+                      className="hover:text-indigo-300 hover:underline transition-colors cursor-pointer"
+                      title={`Xem hồ sơ ${p.username}`}
+                    >
+                      <span className="hidden sm:inline">{p.username}</span>
+                      <span className="sm:hidden">{p.username?.slice(0,5)}</span>
+                    </button>
+                  ) : (
+                    <><span className="hidden sm:inline">{p.username}</span><span className="sm:hidden">{p.username?.slice(0,5)}</span>{' '}<span className="hidden sm:inline">(Bạn)</span><span className="sm:hidden">★</span></>
+                  )}
                 </div>
 
                 {/* Revealed Mayor Crown Overlay */}
@@ -2184,6 +2222,194 @@ export default function GamePage() {
           {mobileTab === 'info' && <div className="w-6 h-[2px] rounded-full mt-0.5" style={{ background: 'linear-gradient(90deg, #e53935, #ffb300)' }} />}
         </button>
       </div>
+
+      {/* ====================================================
+          PLAYER PROFILE MODAL
+          ==================================================== */}
+      <AnimatePresence>
+        {playerProfileModal && (
+          <motion.div
+            id="player-profile-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setPlayerProfileModal(null)}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-white/10"
+              style={{ background: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}
+            >
+              {/* Modal Header */}
+              <div className="relative h-20 flex items-end px-5 pb-3"
+                style={{ background: 'linear-gradient(135deg, #312e81 0%, #4c1d95 40%, #7c3aed 100%)' }}>
+                {/* Decorative circles */}
+                <div className="absolute top-2 right-4 w-16 h-16 rounded-full bg-white/5 blur-sm" />
+                <div className="absolute top-0 right-16 w-8 h-8 rounded-full bg-white/5" />
+                
+                <div className="flex items-center gap-3 w-full">
+                  {/* Avatar placeholder */}
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg border-2 border-white/20 flex-shrink-0">
+                    <span className="text-2xl font-black text-white">
+                      {(playerProfileModal?.username || 'U')[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-white font-black text-lg truncate">{playerProfileModal?.username}</h2>
+                    {profileData && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-indigo-300 text-xs font-bold">Lv.{profileData.level}</span>
+                        <span className="text-purple-300 text-xs">• {profileData.country_code || 'VN'}</span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setPlayerProfileModal(null)}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-all flex-shrink-0"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 space-y-4">
+                {profileLoading ? (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                      className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full"
+                      style={{ borderWidth: 3 }}
+                    />
+                    <span className="text-slate-400 text-sm">Đang tải chỉ số...</span>
+                  </div>
+                ) : profileData ? (
+                  <>
+                    {/* Elo + Win Rate Row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl p-3 text-center"
+                        style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                        <div className="text-2xl font-black text-indigo-400">
+                          {profileData.stats?.elo_rating ?? 1000}
+                        </div>
+                        <div className="text-[10px] uppercase font-black text-indigo-500 tracking-widest mt-0.5">⚡ Elo</div>
+                        <div className="text-[9px] text-slate-500 mt-0.5">
+                          Đỉnh: {profileData.stats?.elo_peak ?? profileData.stats?.elo_rating ?? 1000}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl p-3 text-center"
+                        style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.1) 100%)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        <div className="text-2xl font-black text-emerald-400">
+                          {profileData.stats?.win_rate != null
+                            ? `${parseFloat(profileData.stats.win_rate).toFixed(1)}%`
+                            : (profileData.games_played > 0 ? `${((profileData.games_won / profileData.games_played) * 100).toFixed(1)}%` : '0%')
+                          }
+                        </div>
+                        <div className="text-[10px] uppercase font-black text-emerald-600 tracking-widest mt-0.5">🏆 Tỷ Lệ Thắng</div>
+                        <div className="text-[9px] text-slate-500 mt-0.5">
+                          {profileData.stats?.total_wins ?? profileData.games_won ?? 0}W / {profileData.stats?.total_losses ?? ((profileData.games_played ?? 0) - (profileData.games_won ?? 0))}L
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Total Games */}
+                    <div className="rounded-2xl p-3"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-black text-slate-300">🎮 Tổng Số Trận</span>
+                        <span className="text-lg font-black text-white">{profileData.stats?.total_games ?? profileData.games_played ?? 0}</span>
+                      </div>
+                      {/* Win rate progress bar */}
+                      {(() => {
+                        const total = profileData.stats?.total_games ?? profileData.games_played ?? 0;
+                        const wins = profileData.stats?.total_wins ?? profileData.games_won ?? 0;
+                        const pct = total > 0 ? (wins / total) * 100 : 0;
+                        return (
+                          <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${pct}%` }}
+                              transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 }}
+                              className="h-full rounded-full"
+                              style={{ background: 'linear-gradient(90deg, #10b981, #059669)' }}
+                            />
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Team Breakdown */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] uppercase font-black text-slate-500 tracking-widest">Theo Phe</div>
+                      {[
+                        { label: '🏘️ Dân Làng', games: profileData.stats?.games_as_villager ?? 0, wins: profileData.stats?.wins_as_villager ?? 0, color: '#10b981' },
+                        { label: '🐺 Phe Sói', games: profileData.stats?.games_as_werewolf ?? 0, wins: profileData.stats?.wins_as_werewolf ?? 0, color: '#ef4444' },
+                        { label: '⚡ Độc Lập', games: profileData.stats?.games_as_solo ?? 0, wins: profileData.stats?.wins_as_solo ?? 0, color: '#f59e0b' },
+                      ].map(({ label, games, wins, color }) => (
+                        <div key={label} className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400 w-20 flex-shrink-0">{label}</span>
+                          <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: games > 0 ? `${(wins / games) * 100}%` : '0%' }}
+                              transition={{ duration: 0.7, ease: 'easeOut', delay: 0.2 }}
+                              className="h-full rounded-full"
+                              style={{ background: color }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-slate-400 w-14 text-right flex-shrink-0">
+                            {wins}W/{games}G
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Combat Stats */}
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { icon: '⚔️', label: 'Kills', value: profileData.stats?.total_kills ?? 0 },
+                        { icon: '💊', label: 'Saves', value: profileData.stats?.total_saves ?? 0 },
+                        { icon: '🛡️', label: 'Survived', value: profileData.stats?.times_survived ?? 0 },
+                        { icon: '🪓', label: 'Voted', value: profileData.stats?.times_voted_out ?? 0 },
+                      ].map(({ icon, label, value }) => (
+                        <div key={label} className="rounded-xl p-2 text-center"
+                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div className="text-lg">{icon}</div>
+                          <div className="text-sm font-black text-white">{value}</div>
+                          <div className="text-[8px] text-slate-500 uppercase tracking-wide">{label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Bio */}
+                    {profileData.bio && (
+                      <div className="rounded-2xl p-3 text-xs text-slate-400 italic leading-relaxed"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        "{profileData.bio}"
+                      </div>
+                    )}
+
+                    {/* Join date */}
+                    <div className="text-center text-[10px] text-slate-600">
+                      Tham gia: {profileData.created_at ? new Date(profileData.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-slate-500 text-sm">
+                    Không thể tải dữ liệu người chơi
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   )

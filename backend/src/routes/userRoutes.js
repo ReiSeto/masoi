@@ -41,7 +41,23 @@ router.get('/leaderboard', authenticate, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// GET /users/:username — Hồ sơ công khai
+// GET /users/id/:userId — Hồ sơ công khai theo userId (dùng trong game)
+router.get('/id/:userId', authenticate, async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.userId, {
+      attributes: ['id', 'username', 'level', 'xp', 'games_played', 'games_won', 'bio', 'country_code', 'last_online', 'created_at'],
+      include: [{ model: UserStats, as: 'stats' }],
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+    }
+
+    res.json({ success: true, data: { user } });
+  } catch (e) { next(e); }
+});
+
+// GET /users/:username — Hồ sơ công khai theo username
 router.get('/:username', authenticate, async (req, res, next) => {
   try {
     const user = await User.findOne({
