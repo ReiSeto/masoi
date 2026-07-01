@@ -23,6 +23,10 @@ const { errorHandler, notFound } = require('./middleware/errorHandler');
 const app = express();
 const server = http.createServer(app);
 
+// Trust proxy — required on Render.com / Heroku behind load balancer
+// Allows express-rate-limit to correctly read client IP from X-Forwarded-For
+app.set('trust proxy', 1);
+
 // ============================================================
 // MIDDLEWARE
 // ============================================================
