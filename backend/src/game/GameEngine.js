@@ -627,6 +627,27 @@ class GameEngine {
       return;
     }
 
+    // Kiểm tra Headhunter win độc lập: nếu người bị vote chết là target của HH
+    // HH thắng ngay lập tức (solo win) bất kể phe nào thắng
+    if (voteResult.votedOutPlayer) {
+      const allPlayers = await this.gameState.getAllPlayers();
+      const votedId = voteResult.votedOutPlayer.playerId?.toString();
+      const headhunterWinners = [];
+      for (const [pid, p] of Object.entries(allPlayers)) {
+        if (p.roleSlug === 'headhunter' && p.roleData?.target?.toString() === votedId) {
+          headhunterWinners.push(p.username);
+        }
+      }
+      if (headhunterWinners.length > 0) {
+        await this.triggerEndGame({
+          winningTeam: 'solo',
+          winnerRoleSlug: 'headhunter',
+          headhunterWinners,
+          reason: `🎯 Săn Đầu Người (${headhunterWinners.join(', ')}) thắng! Mục tiêu đã bị treo cổ!`,
+        }, 3000);
+        return;
+      }
+    }
 
     const nextPhase = async () => {
       const state = await this.gameState.get();
@@ -929,10 +950,11 @@ class GameEngine {
       seatNumber: p.seatNumber,
     }));
 
-    // Kiểm tra Headhunter co-win: HH thắng cùng phe Sói khi:
+    // Kiểm tra Headhunter co-win: HH thắng cùng Phe Sói khi:
     // 1. Phe Sói thắng (winningTeam === 'werewolf')
-    // 2. Target của HH đã chết (bất kỳ lý do)
-    // 3. HH thắng kể cả khi HH đã chết
+    // 2. Target của HH đã chết (bất kỳ lý do nào — ban đêm hay treo cổ)
+    // Lưu ý: nếu target bị vote chết THÌ game sẽ kết thúc ngay trong endVotePhase (solo win),
+    //         nên phần này chỉ chạy khi target chết ban đêm và sau đó sói thắng.
     let headhunterAlsoWins = false;
     let headhunterNames = [];
     if (winData.winningTeam === 'werewolf') {

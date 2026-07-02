@@ -2103,6 +2103,7 @@ export default function GamePage() {
             </motion.div>
           )}
         </AnimatePresence>
+        
         {/* PHASE TRANSITION BANNER */}
         <AnimatePresence>
           {phaseTransition && (
@@ -2150,30 +2151,60 @@ export default function GamePage() {
               className="absolute inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-6">
               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 className="bg-[#1e2637] border-2 border-slate-800 rounded-3xl p-8 max-w-2xl w-full text-center shadow-2xl space-y-6">
-                <div className="text-5xl">{gameResult.winningTeam === 'village' ? '🏘️' : gameResult.winningTeam === 'werewolf' ? '🐺' : gameResult.winningTeam === 'draw' ? '⚖️' : '🃏'}</div>
+                <div className="text-5xl">
+                  {gameResult.winnerRoleSlug === 'headhunter' ? '🎯'
+                    : gameResult.winningTeam === 'village' ? '🏘️'
+                    : gameResult.winningTeam === 'werewolf' ? '🐺'
+                    : gameResult.winningTeam === 'solo' ? '🃏'
+                    : '⚖️'}
+                </div>
                 <div>
                   <h2 className="text-2xl font-black tracking-wide" style={{ color: TEAM_COLORS[gameResult.winningTeam] }}>
                     {gameResult.reason}
                   </h2>
                   <p className="text-xs text-slate-400 mt-1 uppercase font-black tracking-widest">
-                    Phe thắng: {gameResult.winningTeam === 'village' ? 'Dân Làng' : gameResult.winningTeam === 'werewolf' ? 'Bầy Sói' : gameResult.winningTeam === 'draw' ? 'Hòa Nhau' : 'Độc Lập'}
+                    Phe thắng: {gameResult.winnerRoleSlug === 'headhunter' ? 'Săn Đầu Người 🎯'
+                      : gameResult.winningTeam === 'village' ? 'Dân Làng'
+                      : gameResult.winningTeam === 'werewolf' ? 'Bầy Sói'
+                      : gameResult.winningTeam === 'solo' ? 'Độc Lập'
+                      : 'Hòa Nhau'}
                   </p>
-                  {/* Headhunter co-win notification */}
-                  {gameResult.headhunterAlsoWins && (
-                    <motion.p 
+                  {/* Headhunter solo win notification */}
+                  {gameResult.winnerRoleSlug === 'headhunter' && (
+                    <motion.p
                       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}
                       className="text-xs text-orange-400 mt-2 font-black bg-orange-500/10 border border-orange-500/20 rounded-lg px-3 py-1.5 inline-block"
                     >
-                      🎯 Săn Đầu Người ({gameResult.headhunterNames?.join(', ')}) thắng cùng 🐺 Phe Sói! Mục tiêu đã bị tiêu diệt!
+                      🎯 Săn Đầu Người ({gameResult.headhunterWinners?.join(', ')}) thắng! Mục tiêu đã bị treo cổ!
+                    </motion.p>
+                  )}
+                  {/* Headhunter co-win: target chết ban đêm, sói thắng sau đó */}
+                  {gameResult.headhunterAlsoWins && gameResult.winnerRoleSlug !== 'headhunter' && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}
+                      className="text-xs text-orange-400 mt-2 font-black bg-orange-500/10 border border-orange-500/20 rounded-lg px-3 py-1.5 inline-block"
+                    >
+                      🎯 Săn Đầu Người ({gameResult.headhunterNames?.join(', ')}) thắng cùng Phe Sói! Mục tiêu đã bị tiêu diệt!
                     </motion.p>
                   )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-left max-h-60 overflow-y-auto p-2 border border-slate-800/80 rounded-2xl bg-black/15">
                   {roleReveal.map(r => {
-                    const isHeadhunterWinner = gameResult.headhunterAlsoWins && r.roleSlug === 'headhunter'
+                    const isHHSoloWin = gameResult.winnerRoleSlug === 'headhunter'
+                    const isHeadhunterWinner = (isHHSoloWin || gameResult.headhunterAlsoWins) && r.roleSlug === 'headhunter'
+                    // Xác định tất cả người thắng
+                    let isWinner = false
+                    if (gameResult.winningTeam === 'village') isWinner = r.team === 'village'
+                    else if (gameResult.winningTeam === 'werewolf') isWinner = r.team === 'werewolf'
+                    else if (gameResult.winnerRoleSlug === 'jester') isWinner = r.roleSlug === 'jester'
+                    else if (isHHSoloWin) isWinner = r.roleSlug === 'headhunter'
+                    else if (gameResult.winnerRoleSlug === 'serial_killer') isWinner = r.roleSlug === 'serial_killer'
+                    else if (gameResult.winnerRoleSlug === 'arsonist') isWinner = r.roleSlug === 'arsonist'
+                    else if (gameResult.winnerRoleSlug === 'cupid') isWinner = r.roleSlug === 'cupid'
+                    if (isHeadhunterWinner) isWinner = true
                     return (
-                      <div key={r.userId} className={`flex items-center gap-2 p-2.5 rounded-xl text-xs bg-slate-900/50 ${r.isAlive ? 'border border-slate-800' : 'opacity-50 grayscale'} ${isHeadhunterWinner ? '!opacity-100 !grayscale-0 border-orange-500/50 ring-1 ring-orange-500/30' : ''}`}>
+                      <div key={r.userId} className={`flex items-center gap-2 p-2.5 rounded-xl text-xs bg-slate-900/50 ${isWinner ? 'border border-slate-700 !opacity-100 !grayscale-0' : 'opacity-50 grayscale border border-transparent'} ${isHeadhunterWinner ? 'border-orange-500/50 ring-1 ring-orange-500/30' : ''}`}>
                         <span>{ROLE_DETAILS[r.roleSlug]?.icon || '❓'}</span>
                         <div>
                           <div className="font-extrabold text-white truncate max-w-[100px]">
@@ -2182,7 +2213,7 @@ export default function GamePage() {
                           </div>
                           <div className="text-[10px] font-black" style={{ color: ROLE_DETAILS[r.roleSlug]?.color }}>
                             {ROLE_DETAILS[r.roleSlug]?.vi || r.roleSlug}
-                            {isHeadhunterWinner && <span className="text-orange-400 ml-1">— THẮNG!</span>}
+                            {isWinner && <span className="ml-1 opacity-70">— THắNG!</span>}
                           </div>
                         </div>
                       </div>
