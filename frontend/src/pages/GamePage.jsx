@@ -784,6 +784,35 @@ export default function GamePage() {
                   </motion.div>
                 )}
 
+                {/* HEADHUNTER TARGET INFO — Desktop night sidebar */}
+                {myRole?.slug === 'headhunter' && roleData?.targetUsername && (
+                  <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
+                    className="w-full max-w-[85%] bg-orange-950/40 border border-orange-700/50 rounded-2xl p-3 space-y-2">
+                    <div className="text-[10px] uppercase font-black text-orange-400 tracking-widest flex items-center gap-1">
+                      <span>🎯</span> Mục Tiêu Của Bạn
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const tgt = players.find(p => p.userId?.toString() === roleData.target?.toString())
+                          return tgt?.isAlive
+                            ? <span className="text-[9px] text-emerald-400 font-bold">● Sống</span>
+                            : <span className="text-[9px] text-red-400 font-bold">● Chết</span>
+                        })()}
+                        <span className="text-sm font-black text-white">{roleData.targetUsername}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-orange-300/70">Ghế #{roleData.targetSeat}</span>
+                    </div>
+                    {(() => {
+                      const tgt = players.find(p => p.userId?.toString() === roleData.target?.toString())
+                      if (!tgt) return null
+                      return tgt.isAlive
+                        ? <p className="text-[10px] text-orange-200/70 font-semibold leading-tight">Hãy thuyết phục dân làng treo cổ họ!</p>
+                        : <p className="text-[10px] text-red-300/70 font-semibold leading-tight">Mục tiêu đã chết — nhiệm vụ thất bại.</p>
+                    })()}
+                  </motion.div>
+                )}
+
                 {/* WOLF VOTE STATUS — Tình trạng vote kill của sói */}
                 {myRole?.team === 'werewolf' && Object.keys(wolfVoteCounts).length > 0 && (
                   <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}
@@ -1115,6 +1144,24 @@ export default function GamePage() {
                   <p className="text-xs text-slate-300 leading-relaxed font-semibold">
                     {roleInfo.desc}
                   </p>
+
+                  {/* HH target info — shown persistently */}
+                  {myRole?.slug === 'headhunter' && roleData?.targetUsername && (
+                    <div className="mt-3 p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/30">
+                      <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">🎯 Mục Tiêu</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-black text-white">{roleData.targetUsername}</span>
+                        <span className="text-[10px] font-bold text-slate-400">Ghế #{roleData.targetSeat}</span>
+                      </div>
+                      {(() => {
+                        const tgt = players.find(p => p.userId?.toString() === roleData.target?.toString())
+                        if (!tgt) return null
+                        return tgt.isAlive
+                          ? <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">● Đang sống</span>
+                          : <span className="text-[10px] text-red-400 font-bold mt-0.5 block">● Đã chết — nhiệm vụ thất bại</span>
+                      })()}
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1150,6 +1197,24 @@ export default function GamePage() {
                 </span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">{roleInfo.desc}</p>
+
+              {/* HH target info — shown persistently in mobile tab */}
+              {myRole?.slug === 'headhunter' && roleData?.targetUsername && (
+                <div className="mt-1 p-3 rounded-xl bg-orange-500/10 border border-orange-500/30">
+                  <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1.5">🎯 Mục Tiêu Của Bạn</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-black text-white">{roleData.targetUsername}</span>
+                    <span className="text-[10px] font-bold text-slate-400">Ghế #{roleData.targetSeat}</span>
+                  </div>
+                  {(() => {
+                    const tgt = players.find(p => p.userId?.toString() === roleData.target?.toString())
+                    if (!tgt) return null
+                    return tgt.isAlive
+                      ? <span className="text-[10px] text-emerald-400 font-bold mt-1 block">● Đang sống — hãy thuyết phục dân treo cổ họ!</span>
+                      : <span className="text-[10px] text-red-400 font-bold mt-1 block">● Đã chết — nhiệm vụ thất bại</span>
+                  })()}
+                </div>
+              )}
             </div>
 
             {/* Game status */}
